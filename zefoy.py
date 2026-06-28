@@ -41,8 +41,6 @@ import numpy as np
 from PIL import Image, ImageEnhance
 from Crypto.Cipher import AES
 
-import shutil as _shutil
-
 class Colors:
     RESET = "\033[0m"
     BLACK   = "\033[30m"; RED     = "\033[31m"; GREEN   = "\033[32m"
@@ -90,9 +88,6 @@ def ok(t):
 def fail(t):
     sym = "✘" if Colors.supports_unicode() else "[X]"
     return f"{error(sym)} {t}"
-
-def _term_width():
-    return _shutil.get_terminal_size((80, 24)).columns
 
 def _box_chars():
     if Colors.supports_unicode():
@@ -170,9 +165,6 @@ def clear_screen():
 _LOGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
 os.makedirs(_LOGS_DIR, exist_ok=True)
 _LOG_FILE = os.path.join(_LOGS_DIR, f"run_{time.strftime('%Y-%m-%d_%H%M%S')}.log")
-
-def _strip_ansi(text):
-    return re.sub(r'\033\[[0-9;]*m', '', str(text))
 
 def log(msg, level="INFO"):
     ts = time.strftime("%H:%M:%S")
@@ -402,14 +394,14 @@ def generate_fingerprint():
             "stylusDetection": random.choice(["Yes", "No"]), "touchSupport": "No"
         },
         "browserInfo": {
-            "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
+            "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
             "timezone": "America/New_York", "timezoneOffset": -240,
             "localeDateTime": time.strftime("%m/%d/%Y, %I:%M:%S %p"),
             "localUnixTime": int(time.time()),
             "calendar": "gregory", "day": "numeric", "locale": "en-US",
             "month": "numeric", "numberingSystem": "latn", "year": "numeric",
             "appName": "Netscape",
-            "appVersion": "5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
+            "appVersion": "5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
             "vendor": "Google Inc.", "language": "en-US", "languages": ["en-US", "en"],
             "cookieEnabled": True, "onlineStatus": "Online", "javaEnabled": False,
             "doNotTrack": None, "referrerHeader": "None", "httpsConnection": "Yes",
@@ -568,10 +560,6 @@ SERVICES = {
     "repost": {"name": "Repost", "selector": ".t-repost-button"},
 }
 
-IMPLEMENTED = ["hearts", "favorites", "chearts", "followers", "views", "shares"]
-
-MAIN_PAGE_SELECTORS = [".t-hearts-button", ".t-followers-button", ".t-views-button", ".t-favorites-button", ".t-chearts-button", ".t-shares-button"]
-
 
 def ask(question, options=None, default=None):
     if options:
@@ -598,10 +586,14 @@ def ask(question, options=None, default=None):
 
 async def _launch_browser(headless: bool):
     pw = await async_playwright().start()
-    browser = await pw.chromium.launch(
-        headless=headless,
-        args=['--disable-blink-features=AutomationControlled', '--disable-infobars', '--no-first-run']
-    )
+    try:
+        browser = await pw.chromium.launch(
+            headless=headless,
+            args=['--disable-blink-features=AutomationControlled', '--disable-infobars', '--no-first-run']
+        )
+    except Exception:
+        await pw.stop()
+        raise
     context = await browser.new_context(
         viewport={'width': 1280, 'height': 720},
         user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
@@ -970,9 +962,13 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
                                 if not line: continue
                                 if re.search(r"Please wait \d+ minute.*\d+ second", line, re.I):
                                     rate_limit_text = line; break
+                                if re.search(r"Please wait \d+ minute", line, re.I):
+                                    rate_limit_text = line; break
                                 if re.search(r"Please wait \d+ second", line, re.I):
                                     rate_limit_text = line; break
                                 if re.search(r"\d+ minute.*\d+ second.*before", line, re.I):
+                                    rate_limit_text = line; break
+                                if re.search(r"\d+ minute.*before", line, re.I):
                                     rate_limit_text = line; break
                                 if re.search(r"\d+ second.*before trying", line, re.I):
                                     rate_limit_text = line; break
@@ -1187,12 +1183,6 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
                                     await b.click(); clicked = True; break
                             except: continue
                         if not clicked:
-                            try:
-                                b = page.locator('.btn-dark:visible').first
-                                if await b.is_visible(timeout=1000):
-                                    await b.click(); clicked = True
-                            except: pass
-                        if not clicked:
                             clicked = await page.evaluate("""() => {
                                 const btns = document.querySelectorAll('button');
                                 for (const b of btns) {
@@ -1211,7 +1201,7 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
                                 }
                                 return false;
                             }""")
-                    if not clicked:
+                    if not clicked and service_key != "chearts":
                         try:
                             btns_info = await page.evaluate("""() => {
                                 const btns = document.querySelectorAll('button');
@@ -1323,8 +1313,7 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
                             else:
                                 log("CAPTCHA failed on restart after retries", "ERROR")
                                 perror("Failed to solve CAPTCHA on restart.")
-                                consecutive_errors = 0
-                                continue
+                                return
                             try:
                                 await page.wait_for_load_state("networkidle", timeout=10000)
                             except: pass
