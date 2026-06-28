@@ -140,18 +140,18 @@ def banner():
         "░                 ░        ░         ",
     ]
 
-    max_len = max(len(l) for l in lines)
+    max_art_len = max(len(l) for l in lines)
+    inner_w = box_w - 2
 
     print()
     print(f"  {c}{bc['tl']}{bc['h'] * box_w}{bc['tr']}{Colors.RESET}")
     for line in lines:
-        pad = box_w - len(line)
-        if pad < 0:
-            pad = 0
-        print(f"  {c}{bc['v']}{Colors.RESET} {Colors.BRIGHT_CYAN}{line}{Colors.RESET}{' ' * pad} {c}{bc['v']}{Colors.RESET}")
+        art_pad = max_art_len - len(line)
+        right_pad = inner_w - max_art_len - 1
+        print(f"  {c}{bc['v']}{Colors.RESET} {Colors.BRIGHT_CYAN}{line}{' ' * art_pad}{Colors.RESET}{' ' * right_pad} {c}{bc['v']}{Colors.RESET}")
     print(f"  {c}{bc['v']}{Colors.RESET}{' ' * box_w}{c}{bc['v']}{Colors.RESET}")
     sub = "by @cpzc  |  TikTok Engagement Engine"
-    sub_pad = max(0, box_w - len(sub) - 2)
+    sub_pad = max(0, inner_w - len(sub) - 1)
     print(f"  {c}{bc['v']}{Colors.RESET}  {dim(sub)}{' ' * sub_pad} {c}{bc['v']}{Colors.RESET}")
     print(f"  {c}{bc['bl']}{bc['h'] * box_w}{bc['br']}{Colors.RESET}")
     print()
