@@ -140,15 +140,19 @@ def banner():
         "░                 ░        ░         ",
     ]
 
+    max_len = max(len(l) for l in lines)
+
     print()
     print(f"  {c}{bc['tl']}{bc['h'] * box_w}{bc['tr']}{Colors.RESET}")
     for line in lines:
-        spacing = " " * max(0, box_w - len(line))
-        print(f"  {c}{bc['v']}{Colors.RESET} {_gradient(line, Colors.BRIGHT_CYAN, Colors.BRIGHT_MAGENTA)}{spacing} {c}{bc['v']}{Colors.RESET}")
+        pad = box_w - len(line)
+        if pad < 0:
+            pad = 0
+        print(f"  {c}{bc['v']}{Colors.RESET} {Colors.BRIGHT_CYAN}{line}{Colors.RESET}{' ' * pad} {c}{bc['v']}{Colors.RESET}")
     print(f"  {c}{bc['v']}{Colors.RESET}{' ' * box_w}{c}{bc['v']}{Colors.RESET}")
     sub = "by @cpzc  |  TikTok Engagement Engine"
-    sub_spacing = " " * max(0, box_w - len(sub) - 2)
-    print(f"  {c}{bc['v']}{Colors.RESET}  {dim(sub)}{sub_spacing} {c}{bc['v']}{Colors.RESET}")
+    sub_pad = max(0, box_w - len(sub) - 2)
+    print(f"  {c}{bc['v']}{Colors.RESET}  {dim(sub)}{' ' * sub_pad} {c}{bc['v']}{Colors.RESET}")
     print(f"  {c}{bc['bl']}{bc['h'] * box_w}{bc['br']}{Colors.RESET}")
     print()
 
