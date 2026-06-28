@@ -155,7 +155,7 @@ def load_config():
         with open(CONFIG_PATH, "r") as f:
             return json.load(f)
     except FileNotFoundError:
-        template = {"telegram_enabled": False, "telegram_bot_token": "", "telegram_chat_id": "", "discord_webhook": ""}
+        template = {"telegram_enabled": False, "telegram_bot_token": "", "telegram_chat_id": "", "discord_webhook": "", "notify_on_send": True, "notify_on_complete": True}
         try:
             with open(CONFIG_PATH, "w") as f:
                 json.dump(template, f, indent=4)
@@ -170,6 +170,8 @@ TELEGRAM_ENABLED = _config.get("telegram_enabled", False)
 TELEGRAM_BOT_TOKEN = _config.get("telegram_bot_token", "")
 TELEGRAM_CHAT_ID = _config.get("telegram_chat_id", "")
 DISCORD_WEBHOOK = _config.get("discord_webhook", "")
+NOTIFY_ON_SEND = _config.get("notify_on_send", True)
+NOTIFY_ON_COMPLETE = _config.get("notify_on_complete", True)
 
 async def send_telegram(message: str):
     if not TELEGRAM_ENABLED or not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
@@ -1152,8 +1154,9 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
                         attempt_success = True
                         log(f"SUCCESS: {result}")
                         psuccess(f"SUCCESS! {result}")
-                        await send_telegram(f"@cpzc/zefoy | {service_name} sent ({sent}/{count})\n{result}\nURL: {url}")
-                        await send_discord(f"@cpzc/zefoy | {service_name} sent ({sent}/{count})\n{result}\nURL: {url}")
+                        if NOTIFY_ON_SEND:
+                            await send_telegram(f"@cpzc/zefoy | {service_name} sent ({sent}/{count})\n{result}\nURL: {url}")
+                            await send_discord(f"@cpzc/zefoy | {service_name} sent ({sent}/{count})\n{result}\nURL: {url}")
                         if cd_wait > 0:
                             pwarning(f"Cooldown {format_time(cd_wait)} before next send...")
                             await countdown_sleep(cd_wait + 2, title_prefix)
@@ -1186,8 +1189,9 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
         log(f"COMPLETE: Sent {sent}/{count} {service_name}")
         section("COMPLETE", Colors.BRIGHT_GREEN)
         print(f"    {ok(f'Sent {sent}/{count} {service_name}')}")
-        await send_telegram(f"@cpzc/zefoy | Finished\nSent {sent}/{count} {service_name}\nURL: {url}")
-        await send_discord(f"@cpzc/zefoy | Finished\nSent {sent}/{count} {service_name}\nURL: {url}")
+        if NOTIFY_ON_COMPLETE:
+            await send_telegram(f"@cpzc/zefoy | Finished\nSent {sent}/{count} {service_name}\nURL: {url}")
+            await send_discord(f"@cpzc/zefoy | Finished\nSent {sent}/{count} {service_name}\nURL: {url}")
         footer(Colors.BRIGHT_GREEN)
         print()
         input(f"  {dim('Press Enter to continue...')}")

@@ -70,7 +70,9 @@ Config is stored in `config.json` (auto-created on first run if missing).
     "telegram_enabled": true,
     "telegram_bot_token": "YOUR_BOT_TOKEN",
     "telegram_chat_id": "YOUR_CHAT_ID",
-    "discord_webhook": ""
+    "discord_webhook": "",
+    "notify_on_send": true,
+    "notify_on_complete": true
 }
 ```
 
@@ -85,9 +87,20 @@ Config is stored in `config.json` (auto-created on first run if missing).
     "telegram_enabled": false,
     "telegram_bot_token": "",
     "telegram_chat_id": "",
-    "discord_webhook": "https://discord.com/api/webhooks/..."
+    "discord_webhook": "https://discord.com/api/webhooks/...",
+    "notify_on_send": true,
+    "notify_on_complete": true
 }
 ```
+
+### Notification Settings
+
+| Setting | Default | Description |
+|---|---|---|
+| `notify_on_send` | `true` | Send a message each time engagement is sent |
+| `notify_on_complete` | `true` | Send a message when the session finishes |
+
+Set either to `false` to silence that event.
 
 ### Notifications
 
