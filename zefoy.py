@@ -28,8 +28,13 @@ def ensure_deps():
 
 ensure_deps()
 
+if os.name == "nt":
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+
 import colorama
-colorama.init()
+colorama.init(strip=False)
 
 from playwright.async_api import async_playwright
 import easyocr
@@ -122,16 +127,28 @@ def banner():
     box_w = tw - 4
     c = Colors.BRIGHT_CYAN
 
+    lines = [
+        "▄████▄   ██▓███  ▒███████▒ ▄████▄  ",
+        "▒██▀ ▀█  ▓██░  ██▒▒ ▒ ▒ ▄▀░▒██▀ ▀█  ",
+        "▒▓█    ▄ ▓██░ ██▓▒░ ▒ ▄▀▒░ ▒▓█    ▄ ",
+        "▒▓▓▄ ▄██▒▒██▄█▓▒ ▒  ▄▀▒   ░▒▓▓▄ ▄██▒",
+        "▒ ▓███▀ ░▒██▒ ░  ░▒███████▒▒ ▓███▀ ░",
+        "░ ░▒ ▒  ░▒▓▒░ ░  ░░▒▒ ▓░▒░▒░ ░▒ ▒  ░",
+        "  ░  ▒   ░▒ ░     ░░▒ ▒ ░ ▒  ░  ▒   ",
+        "░        ░░       ░ ░ ░ ░ ░░        ",
+        "░ ░                 ░ ░    ░ ░      ",
+        "░                 ░        ░         ",
+    ]
+
     print()
     print(f"  {c}{bc['tl']}{bc['h'] * box_w}{bc['tr']}{Colors.RESET}")
-    print(f"  {c}{bc['v']}{Colors.RESET}{' ' * (box_w)}{c}{bc['v']}{Colors.RESET}")
-    print(f"  {c}{bc['v']}{Colors.RESET}  {_gradient('Z E F O Y', Colors.BRIGHT_CYAN, Colors.BRIGHT_MAGENTA)}{' ' * max(0, box_w - 12)}  {c}{bc['v']}{Colors.RESET}")
-    print(f"  {c}{bc['v']}{Colors.RESET}  {dim('A U T O M A T I O N')}{' ' * max(0, box_w - 18)}  {c}{bc['v']}{Colors.RESET}")
-    print(f"  {c}{bc['v']}{Colors.RESET}{' ' * (box_w)}{c}{bc['v']}{Colors.RESET}")
-    h = bc['h']
-    print(f"  {dim(f'  {h * (box_w - 4)}')}")
-    print(f"  {c}{bc['v']}{Colors.RESET}  {dim('by')} {_gradient('@cpzc', Colors.BRIGHT_GREEN, Colors.BRIGHT_CYAN)}  {dim('|')}  {dim('TikTok Engagement Engine')}{' ' * max(0, box_w - 45 - 6)}  {c}{bc['v']}{Colors.RESET}")
-    print(f"  {c}{bc['v']}{Colors.RESET}{' ' * (box_w)}{c}{bc['v']}{Colors.RESET}")
+    for line in lines:
+        spacing = " " * max(0, box_w - len(line))
+        print(f"  {c}{bc['v']}{Colors.RESET} {_gradient(line, Colors.BRIGHT_CYAN, Colors.BRIGHT_MAGENTA)}{spacing} {c}{bc['v']}{Colors.RESET}")
+    print(f"  {c}{bc['v']}{Colors.RESET}{' ' * box_w}{c}{bc['v']}{Colors.RESET}")
+    sub = "by @cpzc  |  TikTok Engagement Engine"
+    sub_spacing = " " * max(0, box_w - len(sub) - 2)
+    print(f"  {c}{bc['v']}{Colors.RESET}  {dim(sub)}{sub_spacing} {c}{bc['v']}{Colors.RESET}")
     print(f"  {c}{bc['bl']}{bc['h'] * box_w}{bc['br']}{Colors.RESET}")
     print()
 
