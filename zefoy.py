@@ -123,8 +123,6 @@ def _gradient(text, c1, c2):
 
 def banner():
     bc = _box_chars()
-    tw = _term_width()
-    box_w = tw - 4
     c = Colors.BRIGHT_CYAN
 
     lines = [
@@ -141,18 +139,20 @@ def banner():
     ]
 
     max_art_len = max(len(l) for l in lines)
-    inner_w = box_w - 2
+    box_w = max_art_len + 6
 
     print()
     print(f"  {c}{bc['tl']}{bc['h'] * box_w}{bc['tr']}{Colors.RESET}")
     for line in lines:
         art_pad = max_art_len - len(line)
-        right_pad = inner_w - max_art_len - 1
+        right_pad = box_w - max_art_len - 4
         print(f"  {c}{bc['v']}{Colors.RESET} {Colors.BRIGHT_CYAN}{line}{' ' * art_pad}{Colors.RESET}{' ' * right_pad} {c}{bc['v']}{Colors.RESET}")
     print(f"  {c}{bc['v']}{Colors.RESET}{' ' * box_w}{c}{bc['v']}{Colors.RESET}")
     sub = "TikTok Automation Tool"
-    sub_pad = max(0, inner_w - len(sub) - 1)
-    print(f"  {c}{bc['v']}{Colors.RESET}  {dim(sub)}{' ' * sub_pad} {c}{bc['v']}{Colors.RESET}")
+    sub_pad = max(0, box_w - len(sub) - 4)
+    left_pad = sub_pad // 2
+    right_pad = sub_pad - left_pad
+    print(f"  {c}{bc['v']}{Colors.RESET}{' ' * left_pad} {dim(sub)} {' ' * right_pad}{c}{bc['v']}{Colors.RESET}")
     print(f"  {c}{bc['bl']}{bc['h'] * box_w}{bc['br']}{Colors.RESET}")
     print()
 
