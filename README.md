@@ -1,199 +1,182 @@
-<div align="center">
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white" />
+  <img src="https://img.shields.io/badge/Playwright-Powered-2EAD33?style=flat-square&logo=playwright&logoColor=white" />
+  <img src="https://img.shields.io/badge/Zefoy-Auto-C9386C?style=flat-square&logo=ticktock&logoColor=white" />
+  <img src="https://img.shields.io/badge/Single-File-FF6B6B?style=flat-square&logo=file&logoColor=white" />
+</p>
 
-# Zefoy Automation
+<h1 align="center">
+  <code>&gt;_ zefoy.py</code>
+</h1>
 
-**Fully automated TikTok engagement tool powered by Playwright**
+<p align="center">
+  <b>one file. zero config. full send.</b><br>
+  <sub>TikTok engagement on autopilot — powered by Playwright, wrapped in vibes</sub>
+</p>
 
-[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/downloads/)
-[![Playwright](https://img.shields.io/badge/Playwright-Powered-2EAD33?style=for-the-badge&logo=playwright&logoColor=white)](https://playwright.dev/)
-[![Discord](https://img.shields.io/badge/Discord-Webhooks-5865F2?style=for-the-badge&logo=discord&logoColor=white)](#discord)
-[![Telegram](https://img.shields.io/badge/Telegram-Bot-26A5E4?style=for-the-badge&logo=telegram&logoColor=white)](#telegram)
-
-[Features](#features) &nbsp;|&nbsp; [Quick Start](#quick-start) &nbsp;|&nbsp; [Configuration](#configuration) &nbsp;|&nbsp; [Services](#supported-services) &nbsp;|&nbsp; [Disclaimer](#disclaimer)
-
----
-
-A single-file Python tool that automates TikTok engagement through [zefoy.com](https://zefoy.com) — no browser extension, no manual interaction required.
-
-</div>
-
----
-
-## Features
-
-<table>
-<tr>
-<td width="50%">
-
-**Core**
-- **Single File** — one `zefoy.py`, nothing else needed
-- **All Services** — likes, views, hearts, comment hearts, favorites, follows, shares
-- **Auto-CAPTCHA** — OCR with image preprocessing and auto-retry
-- **Loop Mode** — returns to URL prompt after each session
-
-</td>
-<td width="50%">
-
-**Notifications**
-- **Telegram Bot** — real-time alerts on sends and bans
-- **Discord Webhooks** — same alerts via webhook
-- **Per-Event Toggles** — choose exactly what you get notified about
-- **Ban Detection** — auto-stops on 24h+ rate limits
-
-</td>
-</tr>
-<tr>
-<td>
-
-**Automation**
-- **Comment Hearts** — enter username once, auto-paginate to find entries
-- **Live Countdown** — timer + view count in console title bar
-- **Auto-Install** — dependencies install themselves on first run
-
-</td>
-<td>
-
-**Developer**
-- **Debug Logging** — timestamped per-run log files in `logs/`
-- **Clean UI** — box-drawing characters, color-coded status
-- **Zero Config** — works out of the box with no setup
-
-</td>
-</tr>
-</table>
+<p align="center">
+  <a href="#how-it-works">how it works</a> •
+  <a href="#install">install</a> •
+  <a href="#config">config</a> •
+  <a href="#services">services</a> •
+  <a href="#comment-hearts">comment hearts</a> •
+  <a href="#logs">logs</a>
+</p>
 
 ---
 
-## Quick Start
+## what is this
 
-### 1. Clone & Install
+```
+zefoy.py does one thing: send tiktok engagement through zefoy.com.
+
+no browser extensions. no manual clicking. no captcha solving by hand.
+just run it, paste a url, pick a service, and let it cook.
+```
+
+it handles everything — opening the browser, solving the captcha,
+navigating the confusing ui, dodging rate limits, and spamming the
+send button until you get what you came for.
+
+---
+
+## install
+
+**the easy way** (auto-installs everything):
 
 ```bash
 git clone https://github.com/cpzc/zefoy-auto.git
 cd zefoy-auto
+python zefoy.py
+```
+
+it'll pull in `playwright`, `colorama`, `pytesseract`, `Pillow` and
+the chromium browser if they're missing.
+
+**the manual way** (if you like doing things yourself):
+
+```bash
 pip install playwright colorama pytesseract Pillow
 playwright install chromium
 ```
 
-> Dependencies auto-install on first run if missing.
+---
 
-### 2. Run
+## how it works
 
-```bash
-python zefoy.py
 ```
-
-### 3. That's it
-
-The tool will:
-1. Open a Chromium browser to zefoy.com
-2. Solve the CAPTCHA automatically
-3. Ask for your TikTok video URL
-4. Detect available services and let you pick one
-5. Send engagement continuously until rate-limited or done
+┌──────────────────────────────────────────────────────────────┐
+│                                                              │
+│  1. you run it                                              │
+│  2. chromium opens zefoy.com                                │
+│  3. captcha gets solved automatically (ocr + preprocessing)  │
+│  4. you paste a tiktok url                                   │
+│  5. it shows you what services are online                    │
+│  6. you pick one, set a count, and it starts sending         │
+│  7. countdown + view count in the title bar the whole time   │
+│  8. when it's done (or rate limited), it loops back          │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## Configuration
+## config
 
-Config is stored in `config.json` and is **auto-created on first run** if missing.
+auto-created on first run. edit `config.json` to enable notifications.
 
 <details>
-<summary><b>Telegram Setup</b></summary>
-
-1. Create a bot via [@BotFather](https://t.me/BotFather)
-2. Get your chat ID via [@userinfobot](https://t.me/userinfobot)
-3. Edit `config.json`:
+<summary><b>t.me / bot setup</b></summary>
 
 ```json
 {
-    "telegram_enabled": true,
-    "telegram_bot_token": "YOUR_BOT_TOKEN",
-    "telegram_chat_id": "YOUR_CHAT_ID"
+  "telegram_enabled": true,
+  "telegram_bot_token": "123456:ABC-DEF...",
+  "telegram_chat_id": "987654321"
 }
 ```
+
+get a token from [@BotFather](https://t.me/BotFather).
+get your chat id from [@userinfobot](https://t.me/userinfobot).
 
 </details>
 
 <details>
-<summary><b>Discord Setup</b></summary>
-
-1. Right-click a channel → **Integrations** → **Webhooks** → **New Webhook**
-2. Copy the webhook URL
-3. Edit `config.json`:
+<summary><b>discord webhook</b></summary>
 
 ```json
 {
-    "discord_webhook": "https://discord.com/api/webhooks/..."
+  "discord_webhook": "https://discord.com/api/webhooks/..."
 }
 ```
+
+right-click a channel → integrations → webhooks → new webhook → copy url.
 
 </details>
 
 <details>
-<summary><b>Notification Toggles</b></summary>
+<summary><b>notification toggles</b></summary>
 
-Control which events trigger a message:
+| key | default | what it does |
+|-----|---------|--------------|
+| `notify_on_send` | `true` | ping you every time something gets sent |
+| `notify_on_complete` | `true` | ping you when the session ends |
 
-| Setting | Default | Description |
-|:--------|:-------:|:------------|
-| `notify_on_send` | `true` | Message on each successful send |
-| `notify_on_complete` | `true` | Message when session finishes |
-
-Set either to `false` to silence that event.
-
-**Example — Discord only, sends only:**
-
-```json
-{
-    "telegram_enabled": false,
-    "telegram_bot_token": "",
-    "telegram_chat_id": "",
-    "discord_webhook": "https://discord.com/api/webhooks/...",
-    "notify_on_send": true,
-    "notify_on_complete": false
-}
-```
+set either to `false` to shut it up for that event.
 
 </details>
 
----
+**full config:**
 
-## Supported Services
-
-| Service | Description | Notes |
-|:--------|:------------|:------|
-| Likes | Send likes to a video | |
-| Views | Send views to a video | |
-| Hearts | Send hearts to a video | |
-| Comment Hearts | Heart a specific user's comment | Auto-paginate across all pages |
-| Favorites | Add video to favorites | |
-| Follows | Follow a user | |
-| Shares | Send shares to a video | |
-
-> Services marked with ✘ on zefoy are offline and automatically skipped.
-
----
-
-## Comment Hearts
-
-Comment Hearts have a unique workflow compared to other services:
-
-```
-┌─────────────────────────────────────────────────┐
-│  1. Tool asks for a TikTok username             │
-│  2. Searches all comment entries for it         │
-│  3. If not found → clicks "Next Page" & retries │
-│  4. When found → heart-boosts that comment      │
-│  5. Stops when no more pages exist              │
-└─────────────────────────────────────────────────┘
+```json
+{
+  "telegram_enabled": false,
+  "telegram_bot_token": "",
+  "telegram_chat_id": "",
+  "discord_webhook": "",
+  "notify_on_send": true,
+  "notify_on_complete": true
+}
 ```
 
 ---
 
-## Debug Logs
+## services
 
-Every run produces a timestamped log file:
+| service | what it does | notes |
+|---------|-------------|-------|
+| likes | send likes to a video | |
+| views | send views to a video | |
+| hearts | send hearts to a video | |
+| comment hearts | heart a specific comment | auto-paginate, username once |
+| favorites | add video to favorites | |
+| follow | follow a user | |
+| shares | send shares to a video | |
+
+offline services get a ✘ and are skipped automatically.
+
+---
+
+## comment hearts
+
+this one's special. it needs a username, not a url.
+
+```
+you type:  @elicacivil
+it searches:  all comment entries across all pages
+it finds:  that user's comment
+it hearts:  that comment
+```
+
+if the user isn't on the current page, it clicks "next page"
+and keeps looking. if there are no more pages, it tells you
+and moves on.
+
+---
+
+## logs
+
+every run gets its own log file:
 
 ```
 logs/
@@ -202,47 +185,34 @@ logs/
 └── run_2026-06-29_091245.log
 ```
 
-Each log includes: browser start, page load, CAPTCHA attempts, service detection, sends, rate limits, pagination, and errors.
+logs include timestamps for: browser launch, page load, captcha
+attempts, captcha solve/fail, service detection, send attempts,
+rate limits, pagination, and errors.
 
 ---
 
-## Project Structure
+## project structure
 
 ```
 zefoy-auto/
-├── zefoy.py          # Everything lives here
-├── config.json       # Telegram + Discord settings
-├── .gitignore        # Ignores config, logs, cache
-├── logs/             # Debug log output
-└── README.md         # You're reading this
+├── zefoy.py        # the whole thing
+├── config.json     # notifications config
+├── .gitignore      # keeps config + logs out of git
+├── logs/           # debug output
+└── README.md       # this file
 ```
 
 ---
 
-## Disclaimer
+## disclaimer
 
-<div align="center">
-
-**This tool is for educational and research purposes only.**
-
-</div>
-
-- Not affiliated with or endorsed by zefoy.com or TikTok
-- Automated interactions may violate Terms of Service
-- Use entirely at your own risk
-- You are responsible for any consequences
-
-**By using this software, you agree to:**
-
-1. Understand the risks involved (account bans, etc.)
-2. Verify compliance with all applicable platform Terms of Service
-3. Use the tool responsibly and ethically
-4. Accept full liability for any outcomes
+this is for educational purposes. not affiliated with zefoy or tikTok.
+automated interactions may violate tos. use at your own risk.
+by using this, you accept all responsibility for what happens.
 
 ---
 
-<div align="center">
-
-Made by [@cpzc](https://github.com/cpzc)
-
-</div>
+<p align="center">
+  <code>made by @cpzc</code><br>
+  <sub>if this helped you out, a star goes a long way</sub>
+</p>
