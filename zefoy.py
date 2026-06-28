@@ -29,7 +29,6 @@ def ensure_deps():
 ensure_deps()
 
 if os.name == "nt":
-    import io
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
@@ -106,20 +105,6 @@ def pwarning(t): print(warning(t))
 def pinfo(t):    print(info(t))
 def pdim(t):     print(dim(t))
 def pbold(t):    print(bold(t))
-
-def _gradient(text, c1, c2):
-    if not Colors.supports_color():
-        return text
-    chars = list(text)
-    n = max(1, len(chars) - 1)
-    result = ""
-    for i, ch in enumerate(chars):
-        ratio = i / n
-        r = int(48 + (96 - 48) * ratio)
-        g = int(176 + (220 - 176) * ratio)
-        b = int(195 + (130 - 195) * ratio)
-        result += f"\033[38;2;{r};{g};{b}m{ch}"
-    return result + Colors.RESET
 
 _BANNER_ART = [
     "▄████▄   ██▓███  ▒███████▒ ▄████▄  ",
@@ -516,6 +501,8 @@ def parse_wait_time(text):
     return 0
 
 def format_time(seconds):
+    if seconds <= 0:
+        return "0s"
     h = seconds // 3600
     m = (seconds % 3600) // 60
     s = seconds % 60
@@ -562,7 +549,6 @@ def run_ocr(image_bytes):
             text = text.replace('7', 't')
             text = text.replace('$', 's')
             text = text.replace('@', 'a')
-            text = text.replace('f', 't')
             text = re.sub(r'[^a-zA-Z]', '', text).lower()
             return text if len(text) >= 3 else ""
         return ""
@@ -777,6 +763,7 @@ async def _open_panel_and_fill_url(page, btn_selector: str, url: str):
     await page.evaluate(REMOVE_AD_OVERLAYS)
 
 async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bool):
+    infinite = count == 0
     clear_screen()
     print()
     banner()
@@ -921,7 +908,7 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
 
         comment_username = ""
         if service_key == "chearts":
-            comment_username = ask("Enter the TikTok username to send comment hearts to").strip()
+            comment_username = ask("Enter the TikTok username to send comment hearts to").strip().lstrip("@")
             if not comment_username:
                 perror("Comment Hearts requires a username."); return
             psuccess(f"Sending comment hearts to @{comment_username}")
@@ -945,12 +932,12 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
             attempt_success = False
             rate_limit_count = 0
             consecutive_errors = 0
+            no_result_count = 0
             title_prefix = f"{service_name} ({i+1}/{count if not infinite else '∞'})"
 
             while not attempt_success:
-                no_result_count = 0
                 try:
-                    log(f"Send {i+1}/{count}: Searching...")
+                    log(f"Send {i+1}/{'∞' if infinite else count}: Searching...")
                     pdim("Searching...")
                     try:
                         btn = page.locator('button:has-text("Search"):visible')
@@ -1188,7 +1175,7 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
                                 return '';
                             }""")
                             if btn_text:
-                                title_prefix = f"{btn_text} ({sent+1}/{count})"
+                                title_prefix = f"{btn_text} ({sent+1}/{'∞' if infinite else count})"
                                 set_title(f"@cpzc/zefoy - {title_prefix}")
                         except: pass
 
@@ -1266,9 +1253,11 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
                         attempt_success = True
                         log(f"SUCCESS: {result}")
                         psuccess(f"SUCCESS! {result}")
+                        no_result_count = 0
                         if NOTIFY_ON_SEND:
-                            await send_telegram(f"@cpzc/zefoy | {service_name} sent ({sent}/{count})\n{result}\nURL: {url}")
-                            await send_discord(f"@cpzc/zefoy | {service_name} sent ({sent}/{count})\n{result}\nURL: {url}")
+                            ratio = f"{sent}/{'∞' if infinite else count}"
+                            await send_telegram(f"@cpzc/zefoy | {service_name} sent ({ratio})\n{result}\nURL: {url}")
+                            await send_discord(f"@cpzc/zefoy | {service_name} sent ({ratio})\n{result}\nURL: {url}")
                         if cd_wait > 0:
                             pwarning(f"Cooldown {format_time(cd_wait)} before next send...")
                             await countdown_sleep(cd_wait + 2, title_prefix)
@@ -1369,7 +1358,7 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
             print()
             print(f"     {progress_bar(count, count, color=Colors.BRIGHT_GREEN)}")
             print()
-            ratio_text = str(sent) + "/" + str(count)
+            ratio_text = f"{sent}/{count}"
             print(f"     {ok(f'{bold(ratio_text)} {service_name} sent successfully')}")
         if NOTIFY_ON_COMPLETE:
             msg = f"@cpzc/zefoy | {'Stopped' if infinite else 'Finished'}\nSent {sent}{'/' + str(count) if not infinite else ''} {service_name}\nURL: {url}"
@@ -1424,7 +1413,7 @@ def main():
         print()
         print(f"     {dim('URL:')} {url}")
         print(f"     {dim('CAPTCHA:')} {'Auto (OCR)' if auto_captcha else 'Manual'}")
-        print(f"     {dim('Count:')} {count}")
+        print(f"     {dim('Count:')} {'Infinite' if count == 0 else count}")
         print(f"     {dim('Headless:')} {'Yes' if headless else 'No'}")
         print()
 
