@@ -132,6 +132,21 @@ def footer(color=Colors.BRIGHT_CYAN):
 def clear_screen():
     os.system("cls" if os.name == "nt" else "clear")
 
+_LOGS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+os.makedirs(_LOGS_DIR, exist_ok=True)
+_LOG_FILE = os.path.join(_LOGS_DIR, f"run_{time.strftime('%Y-%m-%d_%H%M%S')}.log")
+
+def _strip_ansi(text):
+    return re.sub(r'\033\[[0-9;]*m', '', str(text))
+
+def log(msg, level="INFO"):
+    ts = time.strftime("%H:%M:%S")
+    line = f"[{ts}] [{level}] {msg}"
+    try:
+        with open(_LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(line + "\n")
+    except:
+        pass
 
 CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
 
@@ -528,6 +543,7 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
     banner()
 
     pdim("Starting browser...")
+    log(f"Starting browser headless={headless}")
     pw = None
     browser = None
     try:
@@ -536,7 +552,9 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
             headless=headless,
             args=['--disable-blink-features=AutomationControlled', '--disable-infobars', '--no-first-run']
         )
+        log("Browser launched successfully")
     except Exception as e:
+        log(f"Browser launch failed: {e}", "ERROR")
         perror(f"Failed to start browser: {e}")
         return
     context = await browser.new_context(
@@ -559,7 +577,9 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
 
     try:
         pdim("Opening zefoy.com...")
+        log("Navigating to zefoy.com")
         await page.goto("https://zefoy.com", wait_until="domcontentloaded", timeout=60000)
+        log("Page loaded")
         await asyncio.sleep(0.05)
 
         await page.evaluate(REMOVE_AD_OVERLAYS)
@@ -577,6 +597,7 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
 
         solved = False
         for attempt in range(1, 26):
+            log(f"CAPTCHA attempt {attempt}/25 (auto={auto_captcha})")
             pinfo(f"Attempt {attempt}/25...")
 
             if auto_captcha:
@@ -613,6 +634,7 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
                         await page.evaluate(REMOVE_AD_OVERLAYS)
                     continue
                 pinfo(f"OCR sees: {text}")
+                log(f"OCR result: {text}")
             else:
                 print()
                 pdim("Look at the browser window and read the CAPTCHA.")
@@ -639,6 +661,7 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
                 }""")
                 if solved_check:
                     solved = True
+                    log("CAPTCHA solved")
                     print()
                     psuccess("CAPTCHA solved!")
                     break
@@ -648,6 +671,7 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
                     return m && m.offsetParent !== null;
                 }""")
                 if has_error:
+                    log("CAPTCHA wrong answer (error modal)", "WARN")
                     pwarning("Wrong answer, dismissing error...")
                     for sel in ['.modal .close', 'button[data-dismiss="modal"]']:
                         try:
@@ -665,6 +689,7 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
                 await page.evaluate(REMOVE_AD_OVERLAYS)
 
         if not solved:
+            log("CAPTCHA failed after 25 attempts", "ERROR")
             print()
             perror("Failed to solve CAPTCHA. Exiting.")
             await browser.close(); await pw.stop(); return
@@ -679,6 +704,7 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
         clear_screen()
         banner()
         pdim("Checking available services...")
+        log("Detecting available services")
 
         available = {}
         selectable = []
@@ -718,6 +744,7 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
             name = config["name"]
             if available.get(key, False):
                 print(f"    {ok(f'[{sel_num}] {name}')}")
+                log(f"Service available: {name}")
                 sel_num += 1
             else:
                 print(f"    {fail(name)}")
@@ -807,6 +834,7 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
 
             while not attempt_success:
                 try:
+                    log(f"Send {i+1}/{count}: Searching...")
                     pdim("Searching...")
                     try:
                         btn = page.locator('button:has-text("Search"):visible')
@@ -843,14 +871,17 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
                         wt = parse_wait_time(rate_limit_text)
                         if wt >= 86400:
                             hours = wt // 3600
+                            log(f"BANNED: {hours} hour rate limit", "ERROR")
                             print()
                             perror(f"BANNED! {hours} hour rate limit!")
                             await browser.close(); await pw.stop(); return
+                        log(f"Rate limited: {format_time(wt)}")
                         pwarning(f"Rate limited. Waiting {format_time(wt)}...")
                         await countdown_sleep(wt + 3, title_prefix)
                         continue
 
                     if service_key == "chearts":
+                        log(f"Searching for @{comment_username}")
                         pinfo(f"Looking for @{comment_username}...")
                         await asyncio.sleep(2)
 
@@ -859,6 +890,7 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
                             return panel ? panel.innerHTML : '';
                         }""")
                         if not panel_html or len(panel_html.strip()) < 10:
+                            log("Panel empty, retrying", "WARN")
                             pwarning("Panel empty, waiting more...")
                             await asyncio.sleep(2)
                             panel_html = await page.evaluate("""() => {
@@ -898,8 +930,10 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
                             }""", comment_username.lower())
 
                             if entry_found:
+                                log(f"Found @{comment_username} on page {page_attempt + 1}")
                                 break
 
+                            log(f"@{comment_username} not found on page {page_attempt + 1}", "WARN")
                             pwarning(f"@{comment_username} not found on page {page_attempt + 1}")
 
                             next_btn = page.locator('#c2VuZC9mb2xsb3dlcnNfdGlrdG9r li[title="Next"] button').first
@@ -909,6 +943,7 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
                                 has_next = False
 
                             if not has_next:
+                                log(f"@{comment_username} not found on any page", "ERROR")
                                 perror(f"@{comment_username} not found on any page")
                                 entries_text = await page.evaluate("""() => {
                                     const panel = document.getElementById('c2VuZC9mb2xsb3dlcnNfdGlrdG9r');
@@ -1099,6 +1134,7 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
                     if "success" in result.lower() or "sent" in result.lower():
                         sent += 1
                         attempt_success = True
+                        log(f"SUCCESS: {result}")
                         psuccess(f"SUCCESS! {result}")
                         send_telegram(f"@cpzc/zefoy | {service_name} sent ({sent}/{count})\n{result}\nURL: {url}")
                         if cd_wait > 0:
@@ -1118,16 +1154,19 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
                         continue
                     else:
                         msg = result or "empty"
+                        log(f"Unknown result: {msg}", "WARN")
                         pwarning(f"Unknown result: {msg}, retrying...")
                         await asyncio.sleep(0.05)
 
                 except Exception as e:
+                    log(f"Error: {e}", "ERROR")
                     perror(f"Error: {e}, retrying...")
                     await asyncio.sleep(0.05)
 
         print()
         clear_screen()
         banner()
+        log(f"COMPLETE: Sent {sent}/{count} {service_name}")
         section("COMPLETE", Colors.BRIGHT_GREEN)
         print(f"    {ok(f'Sent {sent}/{count} {service_name}')}")
         send_telegram(f"@cpzc/zefoy | Finished\nSent {sent}/{count} {service_name}\nURL: {url}")
