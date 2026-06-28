@@ -931,17 +931,21 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
         pdim(f"Opening {service_name} panel...")
         await _open_panel_and_fill_url(page, btn_selector, url)
 
-        for i in range(count):
+        i = 0
+        while infinite or i < count:
             clear_screen()
             banner()
             section(f"{service_name}")
             print()
-            print(f"     {progress_bar(i, count)}")
+            if infinite:
+                print(f"     {dim('Infinite mode')} {dim('|')} {dim(f'Sent: {sent}')}")
+            else:
+                print(f"     {progress_bar(i, count)}")
             print()
             attempt_success = False
             rate_limit_count = 0
             consecutive_errors = 0
-            title_prefix = f"{service_name} ({i+1}/{count})"
+            title_prefix = f"{service_name} ({i+1}/{count if not infinite else '∞'})"
 
             while not attempt_success:
                 no_result_count = 0
@@ -1349,21 +1353,29 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
                             consecutive_errors = 0
                             continue
                     await asyncio.sleep(0.05)
+            i += 1
 
         print()
         clear_screen()
         banner()
-        log(f"COMPLETE: Sent {sent}/{count} {service_name}")
-        section("COMPLETE", Colors.BRIGHT_GREEN)
-        print()
-        print(f"     {progress_bar(count, count, color=Colors.BRIGHT_GREEN)}")
-        print()
-        ratio_text = str(sent) + "/" + str(count)
-        print(f"     {ok(f'{bold(ratio_text)} {service_name} sent successfully')}")
+        if infinite:
+            log(f"STOPPED: Sent {sent} {service_name}")
+            section("STOPPED", Colors.BRIGHT_YELLOW)
+            print()
+            print(f"     {ok(f'{bold(str(sent))} {service_name} sent (user stopped)')}")
+        else:
+            log(f"COMPLETE: Sent {sent}/{count} {service_name}")
+            section("COMPLETE", Colors.BRIGHT_GREEN)
+            print()
+            print(f"     {progress_bar(count, count, color=Colors.BRIGHT_GREEN)}")
+            print()
+            ratio_text = str(sent) + "/" + str(count)
+            print(f"     {ok(f'{bold(ratio_text)} {service_name} sent successfully')}")
         if NOTIFY_ON_COMPLETE:
-            await send_telegram(f"@cpzc/zefoy | Finished\nSent {sent}/{count} {service_name}\nURL: {url}")
-            await send_discord(f"@cpzc/zefoy | Finished\nSent {sent}/{count} {service_name}\nURL: {url}")
-        footer(Colors.BRIGHT_GREEN)
+            msg = f"@cpzc/zefoy | {'Stopped' if infinite else 'Finished'}\nSent {sent}{'/' + str(count) if not infinite else ''} {service_name}\nURL: {url}"
+            await send_telegram(msg)
+            await send_discord(msg)
+        footer(Colors.BRIGHT_GREEN if not infinite else Colors.BRIGHT_YELLOW)
         print()
         input(f"  {dim('Press Enter to continue...')}")
 
@@ -1400,9 +1412,12 @@ def main():
                            default="auto (OCR reads it)")
         auto_captcha = "auto" in captcha_mode
 
-        count = ask("How many times to send?", default="1")
-        try: count = int(count)
-        except: count = 1
+        count_input = ask("How many times to send? (blank = infinite)", default="1")
+        try:
+            count = int(count_input) if count_input.strip() else 0
+        except:
+            count = 0
+        infinite = count == 0
 
         headless = ask("Run in background (no browser window)?", ["yes", "no"], default="no") == "yes"
 
