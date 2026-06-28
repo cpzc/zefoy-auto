@@ -1,8 +1,8 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white" />
   <img src="https://img.shields.io/badge/Playwright-Powered-2EAD33?style=flat-square&logo=playwright&logoColor=white" />
-  <img src="https://img.shields.io/badge/Zefoy-Auto-C9386C?style=flat-square&logo=ticktock&logoColor=white" />
-  <img src="https://img.shields.io/badge/Single-File-FF6B6B?style=flat-square&logo=file&logoColor=white" />
+  <img src="https://img.shields.io/badge/Zefoy-Auto-C9386C?style=flat-square" />
+  <img src="https://img.shields.io/badge/Single-File-FF6B6B?style=flat-square" />
 </p>
 
 <h1 align="center">
@@ -10,8 +10,8 @@
 </h1>
 
 <p align="center">
-  <b>one file. zero config. full send.</b><br>
-  <sub>TikTok engagement on autopilot — powered by Playwright, wrapped in vibes</sub>
+  <b>Automated TikTok engagement through zefoy.com</b><br>
+  <sub>Playwright-based, single-file, zero config</sub>
 </p>
 
 <p align="center">
@@ -27,22 +27,15 @@
 
 ## what is this
 
-```
-zefoy.py does one thing: send tiktok engagement through zefoy.com.
+A Python script that automates TikTok engagement using [zefoy.com](https://zefoy.com). It opens a Chromium browser, solves the CAPTCHA via OCR, navigates the site, and sends engagement (likes, views, hearts, etc.) to whichever service you pick.
 
-no browser extensions. no manual clicking. no captcha solving by hand.
-just run it, paste a url, pick a service, and let it cook.
-```
-
-it handles everything — opening the browser, solving the captcha,
-navigating the confusing ui, dodging rate limits, and spamming the
-send button until you get what you came for.
+No browser extensions, no manual interaction required.
 
 ---
 
 ## install
 
-**the easy way** (auto-installs everything):
+Clone and run — dependencies install automatically if missing:
 
 ```bash
 git clone https://github.com/cpzc/zefoy-auto.git
@@ -50,10 +43,7 @@ cd zefoy-auto
 python zefoy.py
 ```
 
-it'll pull in `playwright`, `colorama`, `pytesseract`, `Pillow` and
-the chromium browser if they're missing.
-
-**the manual way** (if you like doing things yourself):
+Or install manually:
 
 ```bash
 pip install playwright colorama pytesseract Pillow
@@ -65,44 +55,39 @@ playwright install chromium
 ## how it works
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│                                                              │
-│  1. you run it                                              │
-│  2. chromium opens zefoy.com                                │
-│  3. captcha gets solved automatically (ocr + preprocessing)  │
-│  4. you paste a tiktok url                                   │
-│  5. it shows you what services are online                    │
-│  6. you pick one, set a count, and it starts sending         │
-│  7. countdown + view count in the title bar the whole time   │
-│  8. when it's done (or rate limited), it loops back          │
-│                                                              │
-└──────────────────────────────────────────────────────────────┘
+1. you run zefoy.py
+2. chromium opens zefoy.com
+3. captcha is solved automatically (ocr + image preprocessing)
+4. you paste a tiktok video url
+5. available services are detected and displayed
+6. you pick a service and set the send count
+7. engagement is sent with a live countdown in the title bar
+8. on completion or rate limit, it loops back for another url
 ```
 
 ---
 
 ## config
 
-auto-created on first run. edit `config.json` to enable notifications.
+A `config.json` is created on first run. Edit it to enable notifications.
 
 <details>
-<summary><b>t.me / bot setup</b></summary>
+<summary><b>Telegram</b></summary>
 
 ```json
 {
   "telegram_enabled": true,
-  "telegram_bot_token": "123456:ABC-DEF...",
-  "telegram_chat_id": "987654321"
+  "telegram_bot_token": "your-bot-token",
+  "telegram_chat_id": "your-chat-id"
 }
 ```
 
-get a token from [@BotFather](https://t.me/BotFather).
-get your chat id from [@userinfobot](https://t.me/userinfobot).
+Get a token from [@BotFather](https://t.me/BotFather). Get your chat ID from [@userinfobot](https://t.me/userinfobot).
 
 </details>
 
 <details>
-<summary><b>discord webhook</b></summary>
+<summary><b>Discord</b></summary>
 
 ```json
 {
@@ -110,23 +95,23 @@ get your chat id from [@userinfobot](https://t.me/userinfobot).
 }
 ```
 
-right-click a channel → integrations → webhooks → new webhook → copy url.
+Right-click a channel → Integrations → Webhooks → New Webhook → Copy URL.
 
 </details>
 
 <details>
-<summary><b>notification toggles</b></summary>
+<summary><b>Notification toggles</b></summary>
 
-| key | default | what it does |
-|-----|---------|--------------|
-| `notify_on_send` | `true` | ping you every time something gets sent |
-| `notify_on_complete` | `true` | ping you when the session ends |
+| Key | Default | Description |
+|-----|---------|-------------|
+| `notify_on_send` | `true` | Send a message on each successful send |
+| `notify_on_complete` | `true` | Send a message when the session finishes |
 
-set either to `false` to shut it up for that event.
+Set either to `false` to disable that notification.
 
 </details>
 
-**full config:**
+**Full config example:**
 
 ```json
 {
@@ -143,40 +128,29 @@ set either to `false` to shut it up for that event.
 
 ## services
 
-| service | what it does | notes |
+| Service | Description | Notes |
 |---------|-------------|-------|
-| likes | send likes to a video | |
-| views | send views to a video | |
-| hearts | send hearts to a video | |
-| comment hearts | heart a specific comment | auto-paginate, username once |
-| favorites | add video to favorites | |
-| follow | follow a user | |
-| shares | send shares to a video | |
+| Likes | Send likes to a video | |
+| Views | Send views to a video | |
+| Hearts | Send hearts to a video | |
+| Comment Hearts | Heart a specific user's comment | Auto-paginate across pages |
+| Favorites | Add video to favorites | |
+| Follow | Follow a user | |
+| Shares | Send shares to a video | |
 
-offline services get a ✘ and are skipped automatically.
+Offline services are marked with ✘ and skipped automatically.
 
 ---
 
 ## comment hearts
 
-this one's special. it needs a username, not a url.
-
-```
-you type:  @elicacivil
-it searches:  all comment entries across all pages
-it finds:  that user's comment
-it hearts:  that comment
-```
-
-if the user isn't on the current page, it clicks "next page"
-and keeps looking. if there are no more pages, it tells you
-and moves on.
+This service requires a TikTok username instead of a URL. The script searches all comment entries for that username, navigates across pages if needed, and heart-boosts the comment when found. If the user isn't on any page, it reports that and moves on.
 
 ---
 
 ## logs
 
-every run gets its own log file:
+Each run produces a timestamped log file in `logs/`:
 
 ```
 logs/
@@ -185,9 +159,7 @@ logs/
 └── run_2026-06-29_091245.log
 ```
 
-logs include timestamps for: browser launch, page load, captcha
-attempts, captcha solve/fail, service detection, send attempts,
-rate limits, pagination, and errors.
+Logs include timestamps for browser launch, page load, CAPTCHA attempts, service detection, sends, rate limits, pagination, and errors.
 
 ---
 
@@ -195,24 +167,21 @@ rate limits, pagination, and errors.
 
 ```
 zefoy-auto/
-├── zefoy.py        # the whole thing
-├── config.json     # notifications config
-├── .gitignore      # keeps config + logs out of git
+├── zefoy.py        # main script
+├── config.json     # notification settings
+├── .gitignore      # excludes config, logs, cache
 ├── logs/           # debug output
-└── README.md       # this file
+└── README.md
 ```
 
 ---
 
 ## disclaimer
 
-this is for educational purposes. not affiliated with zefoy or tikTok.
-automated interactions may violate tos. use at your own risk.
-by using this, you accept all responsibility for what happens.
+This tool is for educational and research purposes only. Not affiliated with or endorsed by zefoy.com or TikTok. Automated interactions may violate Terms of Service. Use at your own risk.
 
 ---
 
 <p align="center">
-  <code>made by @cpzc</code><br>
-  <sub>if this helped you out, a star goes a long way</sub>
+  <sub>Made by <a href="https://github.com/cpzc">@cpzc</a></sub>
 </p>
