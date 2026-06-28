@@ -9,7 +9,6 @@ import random
 import re
 import sys
 import time
-from typing import Any
 
 def ensure_deps():
     required = {"playwright": "playwright", "easyocr": "easyocr", "numpy": "numpy",
@@ -32,7 +31,7 @@ ensure_deps()
 import colorama
 colorama.init()
 
-from playwright.async_api import async_playwright, Page
+from playwright.async_api import async_playwright
 import easyocr
 import numpy as np
 from PIL import Image, ImageEnhance
@@ -109,7 +108,7 @@ def banner():
     box_w = tw - 4
     c = Colors.BRIGHT_CYAN
     title = "ZEFOY AUTOMATION"
-    sub = "TikTok Engagement Engine"
+    sub = "by @cpzc  |  TikTok Engagement Engine"
     print()
     print(f"  {c}{bc['tl']}{bc['h']*box_w}{bc['tr']}{Colors.RESET}")
     print(f"  {c}{bc['v']}{Colors.RESET}  {bold(title)}{' '*max(0,box_w-4-len(title))}  {c}{bc['v']}{Colors.RESET}")
@@ -120,7 +119,7 @@ def banner():
 def section(title, color=Colors.BRIGHT_CYAN):
     bc = _box_chars()
     tw = _term_width()
-    filler = max(0, tw - 9 - len(title))
+    filler = max(0, tw - 8 - len(title))
     print()
     print(f"  {color}{bc['tl']}{bc['h']*3} {title} {bc['h']*filler}{bc['tr']}{Colors.RESET}")
 
@@ -140,19 +139,23 @@ def load_config():
     try:
         with open(CONFIG_PATH, "r") as f:
             return json.load(f)
+    except FileNotFoundError:
+        template = {"telegram_enabled": False, "telegram_bot_token": "", "telegram_chat_id": ""}
+        try:
+            with open(CONFIG_PATH, "w") as f:
+                json.dump(template, f, indent=4)
+        except:
+            pass
+        return template
     except:
         return {}
-
-def save_config(data):
-    with open(CONFIG_PATH, "w") as f:
-        json.dump(data, f, indent=4)
 
 _config = load_config()
 TELEGRAM_ENABLED = _config.get("telegram_enabled", False)
 TELEGRAM_BOT_TOKEN = _config.get("telegram_bot_token", "")
 TELEGRAM_CHAT_ID = _config.get("telegram_chat_id", "")
 
-def send_telegram(message: str):
+async def send_telegram(message: str):
     if not TELEGRAM_ENABLED or not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         return
     try:
@@ -164,7 +167,7 @@ def send_telegram(message: str):
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
         data = json.dumps({"chat_id": TELEGRAM_CHAT_ID, "text": message, "parse_mode": "HTML"}).encode()
         req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
-        urllib.request.urlopen(req, timeout=10, context=ctx)
+        await asyncio.to_thread(urllib.request.urlopen, req, timeout=10, context=ctx)
     except Exception as e:
         pwarning(f"Telegram error: {e}")
 
@@ -181,10 +184,10 @@ async def countdown_sleep(seconds: int, prefix: str = ""):
     for remaining in range(seconds, 0, -1):
         line = f"  {dim(f'Waiting {format_time(remaining)}...')}"
         print(f"\r{line:<80}", end="", flush=True)
-        set_title(f"Zefoy - {pfx}{format_time(remaining)}")
+        set_title(f"@cpzc/zefoy - {pfx}{format_time(remaining)}")
         await asyncio.sleep(1)
     print(f"\r{' ':80}", end="", flush=True)
-    set_title("Zefoy")
+    set_title("@cpzc/zefoy")
 
 
 DISMISS_ALERTS = "window.alert = function() { return true; }; window.confirm = function() { return true; };"
@@ -443,7 +446,15 @@ def get_reader():
     return _ocr_reader
 
 def preprocess_image(image_bytes):
-    return image_bytes
+    try:
+        img = Image.open(io.BytesIO(image_bytes)).convert("L")
+        img = ImageEnhance.Contrast(img).enhance(2.0)
+        img = img.resize((img.width * 2, img.height * 2))
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        return buf.getvalue()
+    except:
+        return image_bytes
 
 def run_ocr(image_bytes):
     try:
@@ -861,7 +872,7 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
 
                         try:
                             await page.locator('#c2VuZC9mb2xsb3dlcnNfdGlrdG9r button[type="submit"]').click(force=True)
-                            ok("Clicked comment count button")
+                            psuccess("Clicked comment count button")
                             await asyncio.sleep(2.5)
                         except Exception as e:
                             pwarning(f"Count button click failed: {e}")
@@ -919,7 +930,7 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
                                         print(f"    {t[:80]}")
                                 break
 
-                            ok("Going to next page...")
+                            psuccess("Going to next page...")
                             try:
                                 await next_btn.click(force=True, timeout=5000)
                             except Exception as e:
@@ -943,14 +954,14 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
                                 option_100 = page.locator('[data-zefoy-form] select option[value="100"]')
                                 if await option_100.count() > 0:
                                     await select_el.first.select_option(value="100")
-                                    ok("Selected 100 from dropdown")
+                                    psuccess("Selected 100 from dropdown")
                                     await asyncio.sleep(0.05)
                                 else:
                                     opt = page.locator('[data-zefoy-form] select option:has-text("100")')
                                     if await opt.count() > 0:
                                         val = await opt.first.get_attribute('value')
                                         await select_el.first.select_option(value=val)
-                                        ok("Selected 100 from dropdown")
+                                        psuccess("Selected 100 from dropdown")
                                         await asyncio.sleep(0.05)
                                     else:
                                         pwarning("No 100 option in dropdown")
@@ -968,7 +979,7 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
                             if await send_btn.count() > 0:
                                 await send_btn.click(force=True)
                                 clicked = True
-                                ok("Clicked heart send button")
+                                psuccess("Clicked heart send button")
                         except Exception as e:
                             pwarning(f"Send button click failed: {e}")
 
@@ -989,7 +1000,7 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
                                 try:
                                     await page.locator('[data-zefoy-form] button').nth(visible[0]['idx']).click(force=True)
                                     clicked = True
-                                    ok(f"Clicked button: {visible[0]['text'][:20]}")
+                                    psuccess(f"Clicked button: {visible[0]['text'][:20]}")
                                 except:
                                     pass
                             if not clicked:
@@ -1013,7 +1024,7 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
                             }""")
                             if btn_text:
                                 title_prefix = f"{btn_text} ({sent+1}/{count})"
-                                set_title(f"Zefoy - {title_prefix}")
+                                set_title(f"@cpzc/zefoy - {title_prefix}")
                         except: pass
 
                         clicked = False
@@ -1089,7 +1100,7 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
                         sent += 1
                         attempt_success = True
                         psuccess(f"SUCCESS! {result}")
-                        send_telegram(f"Zefoy | {service_name} sent ({sent}/{count})\n{result}\nURL: {url}")
+                        send_telegram(f"@cpzc/zefoy | {service_name} sent ({sent}/{count})\n{result}\nURL: {url}")
                         if cd_wait > 0:
                             pwarning(f"Cooldown {format_time(cd_wait)} before next send...")
                             await countdown_sleep(cd_wait + 2, title_prefix)
@@ -1119,7 +1130,7 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
         banner()
         section("COMPLETE", Colors.BRIGHT_GREEN)
         print(f"    {ok(f'Sent {sent}/{count} {service_name}')}")
-        send_telegram(f"Zefoy | Finished\nSent {sent}/{count} {service_name}\nURL: {url}")
+        send_telegram(f"@cpzc/zefoy | Finished\nSent {sent}/{count} {service_name}\nURL: {url}")
         footer(Colors.BRIGHT_GREEN)
         print()
         input(f"  {dim('Press Enter to continue...')}")
