@@ -102,32 +102,63 @@ def pinfo(t):    print(info(t))
 def pdim(t):     print(dim(t))
 def pbold(t):    print(bold(t))
 
+def _gradient(text, c1, c2):
+    if not Colors.supports_color():
+        return text
+    chars = list(text)
+    n = max(1, len(chars) - 1)
+    result = ""
+    for i, ch in enumerate(chars):
+        ratio = i / n
+        r = int(48 + (96 - 48) * ratio)
+        g = int(176 + (220 - 176) * ratio)
+        b = int(195 + (130 - 195) * ratio)
+        result += f"\033[38;2;{r};{g};{b}m{ch}"
+    return result + Colors.RESET
+
 def banner():
     bc = _box_chars()
     tw = _term_width()
     box_w = tw - 4
     c = Colors.BRIGHT_CYAN
-    title = "ZEFOY AUTOMATION"
-    sub = "by @cpzc  |  TikTok Engagement Engine"
+
     print()
-    print(f"  {c}{bc['tl']}{bc['h']*box_w}{bc['tr']}{Colors.RESET}")
-    print(f"  {c}{bc['v']}{Colors.RESET}  {bold(title)}{' '*max(0,box_w-4-len(title))}  {c}{bc['v']}{Colors.RESET}")
-    print(f"  {c}{bc['v']}{Colors.RESET}  {dim(sub)}{' '*max(0,box_w-4-len(sub))}  {c}{bc['v']}{Colors.RESET}")
-    print(f"  {c}{bc['bl']}{bc['h']*box_w}{bc['br']}{Colors.RESET}")
+    print(f"  {c}{bc['tl']}{bc['h'] * box_w}{bc['tr']}{Colors.RESET}")
+    print(f"  {c}{bc['v']}{Colors.RESET}{' ' * (box_w)}{c}{bc['v']}{Colors.RESET}")
+    print(f"  {c}{bc['v']}{Colors.RESET}  {_gradient('Z E F O Y', Colors.BRIGHT_CYAN, Colors.BRIGHT_MAGENTA)}{' ' * max(0, box_w - 12)}  {c}{bc['v']}{Colors.RESET}")
+    print(f"  {c}{bc['v']}{Colors.RESET}  {dim('A U T O M A T I O N')}{' ' * max(0, box_w - 18)}  {c}{bc['v']}{Colors.RESET}")
+    print(f"  {c}{bc['v']}{Colors.RESET}{' ' * (box_w)}{c}{bc['v']}{Colors.RESET}")
+    h = bc['h']
+    print(f"  {dim(f'  {h * (box_w - 4)}')}")
+    print(f"  {c}{bc['v']}{Colors.RESET}  {dim('by')} {_gradient('@cpzc', Colors.BRIGHT_GREEN, Colors.BRIGHT_CYAN)}  {dim('|')}  {dim('TikTok Engagement Engine')}{' ' * max(0, box_w - 45 - 6)}  {c}{bc['v']}{Colors.RESET}")
+    print(f"  {c}{bc['v']}{Colors.RESET}{' ' * (box_w)}{c}{bc['v']}{Colors.RESET}")
+    print(f"  {c}{bc['bl']}{bc['h'] * box_w}{bc['br']}{Colors.RESET}")
     print()
 
 def section(title, color=Colors.BRIGHT_CYAN):
     bc = _box_chars()
     tw = _term_width()
-    filler = max(0, tw - 8 - len(title))
+    inner = tw - 6
+    left = 3
+    right = inner - left - len(title) - 2
+    if right < 0:
+        right = 0
     print()
-    print(f"  {color}{bc['tl']}{bc['h']*3} {title} {bc['h']*filler}{bc['tr']}{Colors.RESET}")
+    print(f"  {color}{bc['tl']}{bc['h'] * left} {bold(title)} {bc['h'] * right}{bc['tr']}{Colors.RESET}")
 
 def footer(color=Colors.BRIGHT_CYAN):
     bc = _box_chars()
     tw = _term_width()
-    print(f"  {color}{bc['bl']}{bc['h']*(tw-4)}{bc['br']}{Colors.RESET}")
+    print(f"  {color}{bc['bl']}{bc['h'] * (tw - 4)}{bc['br']}{Colors.RESET}")
     print()
+
+def progress_bar(current, total, width=30, color=Colors.BRIGHT_CYAN):
+    if total == 0:
+        return ""
+    filled = int(width * current / total)
+    bar = f"{'█' * filled}{'░' * (width - filled)}"
+    pct = int(100 * current / total)
+    return f"{color}{bar}{Colors.RESET} {bold(f'{pct}%')} {dim(f'({current}/{total})')}"
 
 def clear_screen():
     os.system("cls" if os.name == "nt" else "clear")
@@ -215,11 +246,16 @@ def set_title(text: str):
 async def countdown_sleep(seconds: int, prefix: str = ""):
     pfx = f"{prefix} | " if prefix else ""
     for remaining in range(seconds, 0, -1):
-        line = f"  {dim(f'Waiting {format_time(remaining)}...')}"
+        bar_w = 20
+        filled = int(bar_w * (seconds - remaining) / seconds) if seconds > 1 else bar_w
+        bar = f"{'█' * filled}{'░' * (bar_w - filled)}"
+        line = f"  {dim(f'⏳')} {Colors.BRIGHT_CYAN}{bar}{Colors.RESET} {dim(format_time(remaining))}"
         print(f"\r{line:<80}", end="", flush=True)
         set_title(f"@cpzc/zefoy - {pfx}{format_time(remaining)}")
         await asyncio.sleep(1)
-    print(f"\r{' ':80}", end="", flush=True)
+    line = f"  {ok('Done')}"
+    print(f"\r{line:<80}", end="", flush=True)
+    print()
     set_title("@cpzc/zefoy")
 
 
@@ -612,11 +648,13 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
         clear_screen()
         banner()
         section("CAPTCHA REQUIRED", Colors.BRIGHT_YELLOW)
+        print()
 
         solved = False
         for attempt in range(1, 26):
             log(f"CAPTCHA attempt {attempt}/25 (auto={auto_captcha})")
-            pinfo(f"Attempt {attempt}/25...")
+            print(f"     {dim(f'Attempt')} {bold(str(attempt) + '/25')}")
+            print()
 
             if auto_captcha:
                 for _ in range(20):
@@ -653,6 +691,7 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
                     continue
                 pinfo(f"OCR sees: {text}")
                 log(f"OCR result: {text}")
+                print()
             else:
                 print()
                 pdim("Look at the browser window and read the CAPTCHA.")
@@ -757,16 +796,19 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
 
         print()
         section("SERVICE STATUS")
+        print()
         sel_num = 1
         for key, config in SERVICES.items():
             name = config["name"]
             if available.get(key, False):
-                print(f"    {ok(f'[{sel_num}] {name}')}")
+                num_text = str(sel_num) + "."
+                print(f"     {ok(f'{bold(num_text)}  {name}')}")
                 log(f"Service available: {name}")
                 sel_num += 1
             else:
-                print(f"    {fail(name)}")
-        footer()
+                dash = dim("-")
+                print(f"     {fail(f'{dash}  {dim(name)}')}")
+        print()
 
         if not selectable:
             perror("No services available! Try again later.")
@@ -774,10 +816,12 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
 
         sel_map = {str(i+1): k for i, k in enumerate(selectable)}
         print()
-        pdim("Select a service:")
+        section("SELECT SERVICE")
+        print()
         for i, k in enumerate(selectable, 1):
-            print(f"    {info(str(i) + '.')}  {SERVICES[k]['name']}")
-        choice = input(f"\n  {bold('Enter number')} (1-{len(selectable)}) {dim('[1]')}: ").strip() or "1"
+            print(f"     {info(bold(str(i) + '.'))}  {SERVICES[k]['name']}")
+        print()
+        choice = input(f"  {bold('Enter number')} (1-{len(selectable)}) {dim('[1]')}: ").strip() or "1"
         while choice not in sel_map:
             choice = input(f"  {error('Invalid.')} Enter number (1-{len(selectable)}) {dim('[1]')}: ").strip() or "1"
         service_key = sel_map[choice]
@@ -845,7 +889,10 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
         for i in range(count):
             clear_screen()
             banner()
-            section(f"{service_name} ({i+1}/{count})")
+            section(f"{service_name}")
+            print()
+            print(f"     {progress_bar(i, count)}")
+            print()
             attempt_success = False
             rate_limit_count = 0
             title_prefix = f"{service_name} ({i+1}/{count})"
@@ -1188,7 +1235,11 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
         banner()
         log(f"COMPLETE: Sent {sent}/{count} {service_name}")
         section("COMPLETE", Colors.BRIGHT_GREEN)
-        print(f"    {ok(f'Sent {sent}/{count} {service_name}')}")
+        print()
+        print(f"     {progress_bar(count, count, color=Colors.BRIGHT_GREEN)}")
+        print()
+        ratio_text = str(sent) + "/" + str(count)
+        print(f"     {ok(f'{bold(ratio_text)} {service_name} sent successfully')}")
         if NOTIFY_ON_COMPLETE:
             await send_telegram(f"@cpzc/zefoy | Finished\nSent {sent}/{count} {service_name}\nURL: {url}")
             await send_discord(f"@cpzc/zefoy | Finished\nSent {sent}/{count} {service_name}\nURL: {url}")
@@ -1218,6 +1269,8 @@ def main():
         print()
         banner()
 
+        section("NEW SESSION")
+        print()
         url = ask("Paste your TikTok video URL")
         if not url:
             break
@@ -1232,6 +1285,15 @@ def main():
         except: count = 1
 
         headless = ask("Run in background (no browser window)?", ["yes", "no"], default="no") == "yes"
+
+        print()
+        print(f"     {dim('URL:')} {url}")
+        print(f"     {dim('CAPTCHA:')} {'Auto (OCR)' if auto_captcha else 'Manual'}")
+        print(f"     {dim('Count:')} {count}")
+        print(f"     {dim('Headless:')} {'Yes' if headless else 'No'}")
+        print()
+        input(f"  {dim('Press Enter to start...')}")
+        print()
 
         try:
             asyncio.run(main_playwright(url, auto_captcha, count, headless))
