@@ -121,29 +121,29 @@ def _gradient(text, c1, c2):
         result += f"\033[38;2;{r};{g};{b}m{ch}"
     return result + Colors.RESET
 
+_BANNER_ART = [
+    "▄████▄   ██▓███  ▒███████▒ ▄████▄  ",
+    "▒██▀ ▀█  ▓██░  ██▒▒ ▒ ▒ ▄▀░▒██▀ ▀█  ",
+    "▒▓█    ▄ ▓██░ ██▓▒░ ▒ ▄▀▒░ ▒▓█    ▄ ",
+    "▒▓▓▄ ▄██▒▒██▄█▓▒ ▒  ▄▀▒   ░▒▓▓▄ ▄██▒",
+    "▒ ▓███▀ ░▒██▒ ░  ░▒███████▒▒ ▓███▀ ░",
+    "░ ░▒ ▒  ░▒▓▒░ ░  ░░▒▒ ▓░▒░▒░ ░▒ ▒  ░",
+    "  ░  ▒   ░▒ ░     ░░▒ ▒ ░ ▒  ░  ▒   ",
+    "░        ░░       ░ ░ ░ ░ ░░        ",
+    "░ ░                 ░ ░    ░ ░      ",
+    "░                 ░        ░         ",
+]
+_BOX_W = max(len(l) for l in _BANNER_ART) + 6
+
 def banner():
     bc = _box_chars()
     c = Colors.BRIGHT_CYAN
-
-    lines = [
-        "▄████▄   ██▓███  ▒███████▒ ▄████▄  ",
-        "▒██▀ ▀█  ▓██░  ██▒▒ ▒ ▒ ▄▀░▒██▀ ▀█  ",
-        "▒▓█    ▄ ▓██░ ██▓▒░ ▒ ▄▀▒░ ▒▓█    ▄ ",
-        "▒▓▓▄ ▄██▒▒██▄█▓▒ ▒  ▄▀▒   ░▒▓▓▄ ▄██▒",
-        "▒ ▓███▀ ░▒██▒ ░  ░▒███████▒▒ ▓███▀ ░",
-        "░ ░▒ ▒  ░▒▓▒░ ░  ░░▒▒ ▓░▒░▒░ ░▒ ▒  ░",
-        "  ░  ▒   ░▒ ░     ░░▒ ▒ ░ ▒  ░  ▒   ",
-        "░        ░░       ░ ░ ░ ░ ░░        ",
-        "░ ░                 ░ ░    ░ ░      ",
-        "░                 ░        ░         ",
-    ]
-
-    max_art_len = max(len(l) for l in lines)
-    box_w = max_art_len + 6
+    box_w = _BOX_W
+    max_art_len = _BOX_W - 6
 
     print()
     print(f"  {c}{bc['tl']}{bc['h'] * box_w}{bc['tr']}{Colors.RESET}")
-    for line in lines:
+    for line in _BANNER_ART:
         art_pad = max_art_len - len(line)
         right_pad = box_w - max_art_len - 4
         print(f"  {c}{bc['v']}{Colors.RESET} {Colors.BRIGHT_CYAN}{line}{' ' * art_pad}{Colors.RESET}{' ' * right_pad} {c}{bc['v']}{Colors.RESET}")
@@ -158,8 +158,7 @@ def banner():
 
 def section(title, color=Colors.BRIGHT_CYAN):
     bc = _box_chars()
-    tw = _term_width()
-    inner = tw - 6
+    inner = _BOX_W - 2
     left = 3
     right = inner - left - len(title) - 2
     if right < 0:
@@ -169,8 +168,7 @@ def section(title, color=Colors.BRIGHT_CYAN):
 
 def footer(color=Colors.BRIGHT_CYAN):
     bc = _box_chars()
-    tw = _term_width()
-    print(f"  {color}{bc['bl']}{bc['h'] * (tw - 4)}{bc['br']}{Colors.RESET}")
+    print(f"  {color}{bc['bl']}{bc['h'] * _BOX_W}{bc['br']}{Colors.RESET}")
     print()
 
 def progress_bar(current, total, width=30, color=Colors.BRIGHT_CYAN):
