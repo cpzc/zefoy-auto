@@ -785,12 +785,17 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
     log(f"Starting browser headless={headless}")
     pw = None
     browser = None
-    try:
-        pw, browser, page = await _launch_browser(headless)
-        log("Browser launched successfully")
-    except Exception as e:
-        log(f"Browser launch failed: {e}", "ERROR")
-        perror(f"Failed to start browser: {e}")
+    for launch_attempt in range(10):
+        try:
+            pw, browser, page = await _launch_browser(headless)
+            log("Browser launched successfully")
+            break
+        except Exception as e:
+            log(f"Browser launch failed (attempt {launch_attempt+1}/10): {e}", "ERROR")
+            perror(f"Failed to start browser (attempt {launch_attempt+1}/10): {e}")
+            await asyncio.sleep(5)
+    else:
+        perror("Failed to start browser after 10 attempts. Exiting.")
         return
 
     try:
@@ -798,10 +803,24 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
         log("Navigating to zefoy.com")
 
         if not await _solve_captcha(page, auto_captcha):
-            log("CAPTCHA failed after 25 attempts", "ERROR")
-            print()
-            perror("Failed to solve CAPTCHA. Exiting.")
-            await browser.close(); await pw.stop(); return
+            log("CAPTCHA failed, retrying...", "WARN")
+            pwarning("CAPTCHA failed. Retrying...")
+            for captcha_retry in range(10):
+                try:
+                    await browser.close()
+                except: pass
+                try:
+                    await pw.stop()
+                except: pass
+                await asyncio.sleep(3)
+                pw, browser, page = await _launch_browser(headless)
+                if await _solve_captcha(page, auto_captcha):
+                    break
+                log(f"CAPTCHA retry {captcha_retry+1}/10 failed", "WARN")
+            else:
+                log("CAPTCHA failed after all retries", "ERROR")
+                perror("Failed to solve CAPTCHA after retries. Exiting.")
+                await browser.close(); await pw.stop(); return
 
         try:
             await page.wait_for_load_state("networkidle", timeout=10000)
@@ -863,8 +882,27 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
         print()
 
         if not selectable:
-            perror("No services available! Try again later.")
-            await browser.close(); await pw.stop(); return
+            log("No services available, waiting 60s to retry", "WARN")
+            pwarning("No services available. Waiting 60s to retry...")
+            await asyncio.sleep(60)
+            await page.goto("https://zefoy.com", wait_until="domcontentloaded", timeout=60000)
+            await asyncio.sleep(1)
+            await page.evaluate(REMOVE_AD_OVERLAYS)
+            for key, config in SERVICES.items():
+                try:
+                    btn = page.locator(config["selector"])
+                    if await btn.is_visible(timeout=2000):
+                        is_disabled = await page.evaluate("""(selector) => {
+                            const el = document.querySelector(selector);
+                            if (!el) return true;
+                            return el.disabled || (el.getAttribute('class') || '').toLowerCase().includes('disabled');
+                        }""", config["selector"])
+                        if not is_disabled:
+                            selectable.append(key)
+                except: pass
+            if not selectable:
+                perror("Still no services. Exiting.")
+                await browser.close(); await pw.stop(); return
 
         sel_map = {str(i+1): k for i, k in enumerate(selectable)}
         print()
@@ -925,10 +963,10 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
                                 continue
                             await btn.first.click(timeout=3000)
                     except Exception as e:
-                        if "Target" in str(e) and "closed" in str(e):
-                            log("Browser closed/crashed", "ERROR")
-                            perror("Browser closed. Exiting.")
-                            await browser.close(); await pw.stop(); return
+                        if "Target" in str(e) and ("closed" in str(e) or "crashed" in str(e)):
+                            log(f"Browser crash on Search: {e}", "WARN")
+                            consecutive_errors = 15
+                            continue
                         pass
                     await asyncio.sleep(2.5)
 
@@ -959,10 +997,10 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
                         wt = parse_wait_time(rate_limit_text)
                         if wt >= 86400:
                             hours = wt // 3600
-                            log(f"BANNED: {hours} hour rate limit", "ERROR")
-                            print()
-                            perror(f"BANNED! {hours} hour rate limit!")
-                            await browser.close(); await pw.stop(); return
+                            log(f"BANNED: {hours} hour rate limit, waiting", "WARN")
+                            pwarning(f"BANNED! {hours} hour rate limit. Waiting...")
+                            await countdown_sleep(wt + 3, title_prefix)
+                            continue
                         log(f"Rate limited: {format_time(wt)}")
                         pwarning(f"Rate limited. Waiting {format_time(wt)}...")
                         await countdown_sleep(wt + 3, title_prefix)
@@ -1233,9 +1271,10 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
                     elif wait2 > 0:
                         if wait2 >= 86400:
                             hours = wait2 // 3600
-                            print()
-                            perror(f"BANNED! {hours} hour rate limit!")
-                            await browser.close(); await pw.stop(); return
+                            log(f"BANNED: {hours} hour rate limit, waiting", "WARN")
+                            pwarning(f"BANNED! {hours} hour rate limit. Waiting...")
+                            await countdown_sleep(wait2 + 3, title_prefix)
+                            continue
                         rate_limit_count += 1
                         multiplier = 1.5 ** (rate_limit_count - 1)
                         total_wait = int(wait2 * multiplier) + 3
@@ -1276,10 +1315,23 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
                         try:
                             pw, browser, page = await _launch_browser(headless)
                             log("Browser relaunched")
-                            if not await _solve_captcha(page, auto_captcha):
-                                log("CAPTCHA failed on restart", "ERROR")
-                                perror("Failed to solve CAPTCHA on restart. Exiting.")
-                                await browser.close(); await pw.stop(); return
+                            for captcha_retry in range(5):
+                                if await _solve_captcha(page, auto_captcha):
+                                    break
+                                log(f"CAPTCHA retry {captcha_retry+1}/5 failed on restart", "WARN")
+                                try:
+                                    await browser.close()
+                                except: pass
+                                try:
+                                    await pw.stop()
+                                except: pass
+                                await asyncio.sleep(3)
+                                pw, browser, page = await _launch_browser(headless)
+                            else:
+                                log("CAPTCHA failed on restart after retries", "ERROR")
+                                perror("Failed to solve CAPTCHA on restart.")
+                                consecutive_errors = 0
+                                continue
                             try:
                                 await page.wait_for_load_state("networkidle", timeout=10000)
                             except: pass
@@ -1291,9 +1343,11 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
                             psuccess("Browser restarted!")
                             continue
                         except Exception as restart_err:
-                            log(f"Restart failed: {restart_err}", "ERROR")
+                            log(f"Restart failed: {restart_err}, retrying in 10s", "ERROR")
                             perror(f"Restart failed: {restart_err}")
-                            await browser.close(); await pw.stop(); return
+                            await asyncio.sleep(10)
+                            consecutive_errors = 0
+                            continue
                     await asyncio.sleep(0.05)
 
         print()
