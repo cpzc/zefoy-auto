@@ -610,26 +610,12 @@ def ask(question, options=None, default=None):
         return answer if answer else default
 
 
-async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bool):
-    clear_screen()
-    print()
-    banner()
-
-    pdim("Starting browser...")
-    log(f"Starting browser headless={headless}")
-    pw = None
-    browser = None
-    try:
-        pw = await async_playwright().start()
-        browser = await pw.chromium.launch(
-            headless=headless,
-            args=['--disable-blink-features=AutomationControlled', '--disable-infobars', '--no-first-run']
-        )
-        log("Browser launched successfully")
-    except Exception as e:
-        log(f"Browser launch failed: {e}", "ERROR")
-        perror(f"Failed to start browser: {e}")
-        return
+async def _launch_browser(headless: bool):
+    pw = await async_playwright().start()
+    browser = await pw.chromium.launch(
+        headless=headless,
+        args=['--disable-blink-features=AutomationControlled', '--disable-infobars', '--no-first-run']
+    )
     context = await browser.new_context(
         viewport={'width': 1280, 'height': 720},
         user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
@@ -647,124 +633,171 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
     for script in [DISMISS_ALERTS, BLOCK_NOTIFICATIONS, BLOCK_FC_POPUPS, GENERATE_CF_OB_TE, MOUSE_SIMULATION_K9X, SPOOF_FINGERPRINT]:
         await page.add_init_script(script)
     await page.add_init_script(f"window.__zefoy_spoofed_fingerprint = {spoofed_fp!r};")
+    return pw, browser, page
+
+async def _solve_captcha(page, auto_captcha: bool):
+    await page.goto("https://zefoy.com", wait_until="domcontentloaded", timeout=60000)
+    await asyncio.sleep(0.05)
+    await page.evaluate(REMOVE_AD_OVERLAYS)
+    for sel in ['button:has-text("Consent")', '.fc-cta-consent']:
+        try:
+            btn = page.locator(sel).first
+            if await btn.is_visible(timeout=500):
+                await btn.click(force=True)
+                await asyncio.sleep(0.05)
+        except: pass
+
+    for attempt in range(1, 26):
+        log(f"CAPTCHA attempt {attempt}/25 (auto={auto_captcha})")
+        if auto_captcha:
+            for _ in range(20):
+                loaded = await page.evaluate("""() => {
+                    const img = document.getElementById('captcha-img');
+                    if (img && img.src && img.src.length > 10 && img.complete && img.naturalWidth > 50) return true;
+                    return false;
+                }""")
+                if loaded: break
+                await asyncio.sleep(0.05)
+
+            captcha_el = page.locator('#captcha-img')
+            try:
+                image = await captcha_el.screenshot()
+            except:
+                image = None
+
+            if not image:
+                if attempt < 25:
+                    await page.goto("https://zefoy.com", timeout=10000)
+                    await asyncio.sleep(0.05)
+                    await page.evaluate(REMOVE_AD_OVERLAYS)
+                continue
+
+            processed = preprocess_image(image)
+            text = run_ocr(processed)
+            if not text:
+                if attempt < 25:
+                    await page.goto("https://zefoy.com", timeout=10000)
+                    await asyncio.sleep(0.05)
+                    await page.evaluate(REMOVE_AD_OVERLAYS)
+                continue
+        else:
+            pdim("Look at the browser window and read the CAPTCHA.")
+            text = input("  Type what you see: ").strip()
+            if not text: continue
+
+        try:
+            inp = page.locator('#captchatoken')
+            await inp.fill(text)
+            await asyncio.sleep(0.05)
+            btn = page.locator('.submit-captcha')
+            if await btn.is_visible(timeout=1000):
+                await btn.click()
+            else:
+                await page.locator('button[type="submit"]').first.click()
+            await asyncio.sleep(1)
+
+            solved_check = await page.evaluate("""() => {
+                for (const sel of [".t-hearts-button", ".t-followers-button", ".t-views-button", ".t-favorites-button", ".t-chearts-button", ".t-shares-button"]) {
+                    const el = document.querySelector(sel);
+                    if (el && el.offsetParent !== null) return true;
+                }
+                return false;
+            }""")
+            if solved_check:
+                log("CAPTCHA solved")
+                return True
+
+            has_error = await page.evaluate("""() => {
+                const m = document.getElementById('zbcd');
+                return m && m.offsetParent !== null;
+            }""")
+            if has_error:
+                log("CAPTCHA wrong answer", "WARN")
+                for sel in ['.modal .close', 'button[data-dismiss="modal"]']:
+                    try:
+                        b = page.locator(sel).first
+                        if await b.is_visible(timeout=500): await b.click(); await asyncio.sleep(0.05)
+                    except: pass
+        except Exception as e:
+            pass
+
+        if attempt < 25:
+            await page.goto("https://zefoy.com", timeout=10000)
+            await asyncio.sleep(0.05)
+            await page.evaluate(REMOVE_AD_OVERLAYS)
+
+    return False
+
+async def _open_panel_and_fill_url(page, btn_selector: str, url: str):
+    await page.evaluate(REMOVE_AD_OVERLAYS)
+    try:
+        await page.locator(btn_selector).click(force=True)
+    except:
+        pass
+    await asyncio.sleep(2)
+    await page.evaluate(REMOVE_AD_OVERLAYS)
+
+    panel_open = await page.evaluate("""() => {
+        const inputs = document.querySelectorAll('input[placeholder="Enter Video URL"]');
+        for (const inp of inputs) {
+            const rect = inp.getBoundingClientRect();
+            if (rect.width > 0 && rect.height > 0) return true;
+        }
+        return false;
+    }""")
+    if not panel_open:
+        try:
+            await page.locator(btn_selector).click(force=True)
+            await asyncio.sleep(2)
+        except: pass
+
+    url_filled = False
+    for sel in ['input[placeholder="Enter Video URL"]:visible', 'input[type="search"]:visible']:
+        try:
+            inp = page.locator(sel).first
+            if await inp.is_visible(timeout=2000):
+                await inp.fill(url)
+                url_filled = True
+                break
+        except: continue
+    if not url_filled:
+        await page.evaluate("""([url]) => {
+            const inputs = document.querySelectorAll('input[placeholder="Enter Video URL"]');
+            for (const input of inputs) {
+                const rect = input.getBoundingClientRect();
+                if (rect.width > 0 && rect.height > 0) {
+                    input.value = url;
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                    return true;
+                }
+            }
+            return false;
+        }""", [url])
+    await asyncio.sleep(1)
+    await page.evaluate(REMOVE_AD_OVERLAYS)
+
+async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bool):
+    clear_screen()
+    print()
+    banner()
+
+    pdim("Starting browser...")
+    log(f"Starting browser headless={headless}")
+    pw = None
+    browser = None
+    try:
+        pw, browser, page = await _launch_browser(headless)
+        log("Browser launched successfully")
+    except Exception as e:
+        log(f"Browser launch failed: {e}", "ERROR")
+        perror(f"Failed to start browser: {e}")
+        return
 
     try:
         pdim("Opening zefoy.com...")
         log("Navigating to zefoy.com")
-        await page.goto("https://zefoy.com", wait_until="domcontentloaded", timeout=60000)
-        log("Page loaded")
-        await asyncio.sleep(0.05)
 
-        await page.evaluate(REMOVE_AD_OVERLAYS)
-        for sel in ['button:has-text("Consent")', '.fc-cta-consent']:
-            try:
-                btn = page.locator(sel).first
-                if await btn.is_visible(timeout=500):
-                    await btn.click(force=True)
-                    await asyncio.sleep(0.05)
-            except: pass
-
-        clear_screen()
-        banner()
-        section("CAPTCHA REQUIRED", Colors.BRIGHT_YELLOW)
-        print()
-
-        solved = False
-        for attempt in range(1, 26):
-            log(f"CAPTCHA attempt {attempt}/25 (auto={auto_captcha})")
-            print(f"     {dim(f'Attempt')} {bold(str(attempt) + '/25')}")
-            print()
-
-            if auto_captcha:
-                for _ in range(20):
-                    loaded = await page.evaluate("""() => {
-                        const img = document.getElementById('captcha-img');
-                        if (img && img.src && img.src.length > 10 && img.complete && img.naturalWidth > 50) return true;
-                        return false;
-                    }""")
-                    if loaded: break
-                    await asyncio.sleep(0.05)
-
-                captcha_el = page.locator('#captcha-img')
-                try:
-                    image = await captcha_el.screenshot()
-                except:
-                    image = None
-
-                if not image:
-                    perror("Could not get CAPTCHA image")
-                    if attempt < 25:
-                        await page.goto("https://zefoy.com", timeout=10000)
-                        await asyncio.sleep(0.05)
-                        await page.evaluate(REMOVE_AD_OVERLAYS)
-                    continue
-
-                processed = preprocess_image(image)
-                text = run_ocr(processed)
-                if not text:
-                    pwarning("OCR could not read it")
-                    if attempt < 25:
-                        await page.goto("https://zefoy.com", timeout=10000)
-                        await asyncio.sleep(0.05)
-                        await page.evaluate(REMOVE_AD_OVERLAYS)
-                    continue
-                pinfo(f"OCR sees: {text}")
-                log(f"OCR result: {text}")
-                print()
-            else:
-                print()
-                pdim("Look at the browser window and read the CAPTCHA.")
-                text = input("  Type what you see: ").strip()
-                if not text: continue
-
-            try:
-                inp = page.locator('#captchatoken')
-                await inp.fill(text)
-                await asyncio.sleep(0.05)
-                btn = page.locator('.submit-captcha')
-                if await btn.is_visible(timeout=1000):
-                    await btn.click()
-                else:
-                    await page.locator('button[type="submit"]').first.click()
-                await asyncio.sleep(1)
-
-                solved_check = await page.evaluate("""() => {
-                    for (const sel of [".t-hearts-button", ".t-followers-button", ".t-views-button", ".t-favorites-button", ".t-chearts-button", ".t-shares-button"]) {
-                        const el = document.querySelector(sel);
-                        if (el && el.offsetParent !== null) return true;
-                    }
-                    return false;
-                }""")
-                if solved_check:
-                    solved = True
-                    log("CAPTCHA solved")
-                    print()
-                    psuccess("CAPTCHA solved!")
-                    break
-
-                has_error = await page.evaluate("""() => {
-                    const m = document.getElementById('zbcd');
-                    return m && m.offsetParent !== null;
-                }""")
-                if has_error:
-                    log("CAPTCHA wrong answer (error modal)", "WARN")
-                    pwarning("Wrong answer, dismissing error...")
-                    for sel in ['.modal .close', 'button[data-dismiss="modal"]']:
-                        try:
-                            b = page.locator(sel).first
-                            if await b.is_visible(timeout=500): await b.click(); await asyncio.sleep(0.05)
-                        except: pass
-                else:
-                    pwarning("Wrong answer, reloading...")
-            except Exception as e:
-                perror(f"Error: {e}")
-
-            if attempt < 25:
-                await page.goto("https://zefoy.com", timeout=10000)
-                await asyncio.sleep(0.05)
-                await page.evaluate(REMOVE_AD_OVERLAYS)
-
-        if not solved:
+        if not await _solve_captcha(page, auto_captcha):
             log("CAPTCHA failed after 25 attempts", "ERROR")
             print()
             perror("Failed to solve CAPTCHA. Exiting.")
@@ -858,52 +891,7 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
         sent = 0
 
         pdim(f"Opening {service_name} panel...")
-        await page.evaluate(REMOVE_AD_OVERLAYS)
-        try:
-            await page.locator(btn_selector).click(force=True)
-        except:
-            pass
-        await asyncio.sleep(2)
-        await page.evaluate(REMOVE_AD_OVERLAYS)
-
-        panel_open = await page.evaluate("""() => {
-            const inputs = document.querySelectorAll('input[placeholder="Enter Video URL"]');
-            for (const inp of inputs) {
-                const rect = inp.getBoundingClientRect();
-                if (rect.width > 0 && rect.height > 0) return true;
-            }
-            return false;
-        }""")
-        if not panel_open:
-            pwarning("Panel may not be open, retrying...")
-            await page.locator(btn_selector).click(force=True)
-            await asyncio.sleep(2)
-
-        pdim("Entering video URL...")
-        url_filled = False
-        for sel in ['input[placeholder="Enter Video URL"]:visible', 'input[type="search"]:visible']:
-            try:
-                inp = page.locator(sel).first
-                if await inp.is_visible(timeout=2000):
-                    await inp.fill(url)
-                    url_filled = True
-                    break
-            except: continue
-        if not url_filled:
-            await page.evaluate("""([url]) => {
-                const inputs = document.querySelectorAll('input[placeholder="Enter Video URL"]');
-                for (const input of inputs) {
-                    const rect = input.getBoundingClientRect();
-                    if (rect.width > 0 && rect.height > 0) {
-                        input.value = url;
-                        input.dispatchEvent(new Event('input', { bubbles: true }));
-                        return true;
-                    }
-                }
-                return false;
-            }""", [url])
-        await asyncio.sleep(1)
-        await page.evaluate(REMOVE_AD_OVERLAYS)
+        await _open_panel_and_fill_url(page, btn_selector, url)
 
         for i in range(count):
             clear_screen()
@@ -914,6 +902,7 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
             print()
             attempt_success = False
             rate_limit_count = 0
+            consecutive_errors = 0
             title_prefix = f"{service_name} ({i+1}/{count})"
 
             while not attempt_success:
@@ -1268,12 +1257,43 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
 
                 except Exception as e:
                     err_str = str(e)
+                    consecutive_errors += 1
                     if "Target" in err_str and ("closed" in err_str or "crashed" in err_str):
-                        log(f"Browser crash: {e}", "ERROR")
-                        perror("Browser crashed. Exiting.")
-                        await browser.close(); await pw.stop(); return
-                    log(f"Error: {e}", "ERROR")
-                    perror(f"Error: {e}, retrying...")
+                        log(f"Browser crash ({consecutive_errors}/15): {e}", "WARN")
+                    else:
+                        log(f"Error ({consecutive_errors}/15): {e}", "ERROR")
+                    perror(f"Error: {e}")
+                    if consecutive_errors >= 15:
+                        log("Too many errors, restarting browser", "WARN")
+                        pwarning("Restarting browser...")
+                        try:
+                            await browser.close()
+                        except: pass
+                        try:
+                            await pw.stop()
+                        except: pass
+                        await asyncio.sleep(3)
+                        try:
+                            pw, browser, page = await _launch_browser(headless)
+                            log("Browser relaunched")
+                            if not await _solve_captcha(page, auto_captcha):
+                                log("CAPTCHA failed on restart", "ERROR")
+                                perror("Failed to solve CAPTCHA on restart. Exiting.")
+                                await browser.close(); await pw.stop(); return
+                            try:
+                                await page.wait_for_load_state("networkidle", timeout=10000)
+                            except: pass
+                            await asyncio.sleep(1)
+                            await page.evaluate(REMOVE_AD_OVERLAYS)
+                            await _open_panel_and_fill_url(page, btn_selector, url)
+                            consecutive_errors = 0
+                            log("Browser restarted successfully")
+                            psuccess("Browser restarted!")
+                            continue
+                        except Exception as restart_err:
+                            log(f"Restart failed: {restart_err}", "ERROR")
+                            perror(f"Restart failed: {restart_err}")
+                            await browser.close(); await pw.stop(); return
                     await asyncio.sleep(0.05)
 
         print()
