@@ -1292,8 +1292,6 @@ def main():
         print(f"     {dim('Count:')} {count}")
         print(f"     {dim('Headless:')} {'Yes' if headless else 'No'}")
         print()
-        input(f"  {dim('Press Enter to start...')}")
-        print()
 
         try:
             asyncio.run(main_playwright(url, auto_captcha, count, headless))
