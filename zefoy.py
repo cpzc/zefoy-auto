@@ -155,7 +155,7 @@ def load_config():
         with open(CONFIG_PATH, "r") as f:
             return json.load(f)
     except FileNotFoundError:
-        template = {"telegram_enabled": False, "telegram_bot_token": "", "telegram_chat_id": "", "discord_webhook": "", "notify_on_send": True, "notify_on_complete": True, "use_chrome": False}
+        template = {"telegram_enabled": False, "telegram_bot_token": "", "telegram_chat_id": "", "discord_webhook": "", "notify_on_send": True, "notify_on_complete": True}
         try:
             with open(CONFIG_PATH, "w") as f:
                 json.dump(template, f, indent=4)
@@ -172,7 +172,6 @@ TELEGRAM_CHAT_ID = _config.get("telegram_chat_id", "")
 DISCORD_WEBHOOK = _config.get("discord_webhook", "")
 NOTIFY_ON_SEND = _config.get("notify_on_send", True)
 NOTIFY_ON_COMPLETE = _config.get("notify_on_complete", True)
-USE_CHROME = _config.get("use_chrome", False)
 
 async def send_telegram(message: str):
     if not TELEGRAM_ENABLED or not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
@@ -567,27 +566,10 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
     browser = None
     try:
         pw = await async_playwright().start()
-        launch_args = ['--disable-blink-features=AutomationControlled', '--disable-infobars', '--no-first-run']
-        if USE_CHROME:
-            try:
-                browser = await pw.chromium.launch(
-                    headless=headless, channel="chrome",
-                    args=launch_args
-                )
-                log("Launched via system Chrome")
-            except Exception:
-                log("Chrome not found, falling back to Chromium", "WARN")
-                browser = await pw.chromium.launch(
-                    headless=headless,
-                    args=launch_args
-                )
-                log("Launched via Chromium (fallback)")
-        else:
-            browser = await pw.chromium.launch(
-                headless=headless,
-                args=launch_args
-            )
-            log("Launched via Chromium")
+        browser = await pw.chromium.launch(
+            headless=headless,
+            args=['--disable-blink-features=AutomationControlled', '--disable-infobars', '--no-first-run']
+        )
         log("Browser launched successfully")
     except Exception as e:
         log(f"Browser launch failed: {e}", "ERROR")
@@ -1231,7 +1213,6 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
 
 
 def main():
-    global USE_CHROME
     while True:
         clear_screen()
         print()
@@ -1251,16 +1232,6 @@ def main():
         except: count = 1
 
         headless = ask("Run in background (no browser window)?", ["yes", "no"], default="no") == "yes"
-
-        browser_type = ask("Which browser?", ["Chrome (system)", "Chromium (Playwright)"], default="Chrome (system)" if USE_CHROME else "Chromium (Playwright)")
-        use_chrome = "Chrome" in browser_type
-        if use_chrome != USE_CHROME:
-            USE_CHROME = use_chrome
-            _config["use_chrome"] = use_chrome
-            try:
-                with open(CONFIG_PATH, "w") as f:
-                    json.dump(_config, f, indent=4)
-            except: pass
 
         try:
             asyncio.run(main_playwright(url, auto_captcha, count, headless))

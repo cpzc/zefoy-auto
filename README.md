@@ -50,8 +50,6 @@ pip install playwright colorama pytesseract Pillow
 playwright install chromium
 ```
 
-If you prefer Google Chrome over Chromium, set `"use_chrome": true` in `config.json` or select Chrome when prompted. Chrome must be installed on your system.
-
 ---
 
 ## how it works
@@ -122,12 +120,9 @@ Set either to `false` to disable that notification.
   "telegram_chat_id": "",
   "discord_webhook": "",
   "notify_on_send": true,
-  "notify_on_complete": true,
-  "use_chrome": false
+  "notify_on_complete": true
 }
 ```
-
-Set `use_chrome` to `true` to use your installed Google Chrome instead of Playwright's bundled Chromium.
 
 ---
 
