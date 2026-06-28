@@ -150,7 +150,7 @@ def banner():
         right_pad = inner_w - max_art_len - 1
         print(f"  {c}{bc['v']}{Colors.RESET} {Colors.BRIGHT_CYAN}{line}{' ' * art_pad}{Colors.RESET}{' ' * right_pad} {c}{bc['v']}{Colors.RESET}")
     print(f"  {c}{bc['v']}{Colors.RESET}{' ' * box_w}{c}{bc['v']}{Colors.RESET}")
-    sub = "by @cpzc  |  TikTok Engagement Engine"
+    sub = "TikTok Automation Tool"
     sub_pad = max(0, inner_w - len(sub) - 1)
     print(f"  {c}{bc['v']}{Colors.RESET}  {dim(sub)}{' ' * sub_pad} {c}{bc['v']}{Colors.RESET}")
     print(f"  {c}{bc['bl']}{bc['h'] * box_w}{bc['br']}{Colors.RESET}")
