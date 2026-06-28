@@ -917,14 +917,29 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
             title_prefix = f"{service_name} ({i+1}/{count})"
 
             while not attempt_success:
+                no_result_count = 0
                 try:
                     log(f"Send {i+1}/{count}: Searching...")
                     pdim("Searching...")
                     try:
                         btn = page.locator('button:has-text("Search"):visible')
                         if await btn.count() > 0:
+                            is_disabled = await page.evaluate("""(sel) => {
+                                const b = document.querySelector(sel);
+                                if (!b) return true;
+                                return b.disabled || b.className.includes('disableButton');
+                            }""", 'button:has-text("Search")')
+                            if is_disabled:
+                                log("Search button disabled, waiting 30s", "WARN")
+                                pwarning("Search button disabled. Waiting 30s...")
+                                await asyncio.sleep(30)
+                                continue
                             await btn.first.click(timeout=3000)
-                    except:
+                    except Exception as e:
+                        if "Target" in str(e) and "closed" in str(e):
+                            log("Browser closed/crashed", "ERROR")
+                            perror("Browser closed. Exiting.")
+                            await browser.close(); await pw.stop(); return
                         pass
                     await asyncio.sleep(2.5)
 
@@ -1240,11 +1255,23 @@ async def main_playwright(url: str, auto_captcha: bool, count: int, headless: bo
                         continue
                     else:
                         msg = result or "empty"
-                        log(f"Unknown result: {msg}", "WARN")
-                        pwarning(f"Unknown result: {msg}, retrying...")
-                        await asyncio.sleep(0.05)
+                        no_result_count += 1
+                        log(f"Unknown result ({no_result_count}/10): {msg}", "WARN")
+                        pwarning(f"Unknown result: {msg}, retrying... ({no_result_count}/10)")
+                        if no_result_count >= 10:
+                            log("Too many unknown results, waiting 60s", "WARN")
+                            pwarning("Too many failed attempts. Waiting 60s...")
+                            await asyncio.sleep(60)
+                            no_result_count = 0
+                        else:
+                            await asyncio.sleep(0.05)
 
                 except Exception as e:
+                    err_str = str(e)
+                    if "Target" in err_str and ("closed" in err_str or "crashed" in err_str):
+                        log(f"Browser crash: {e}", "ERROR")
+                        perror("Browser crashed. Exiting.")
+                        await browser.close(); await pw.stop(); return
                     log(f"Error: {e}", "ERROR")
                     perror(f"Error: {e}, retrying...")
                     await asyncio.sleep(0.05)
